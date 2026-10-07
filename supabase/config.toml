@@ -1,11 +1,21 @@
+# verify_jwt is false on purpose: both functions verify the caller themselves
+# in _shared/common.ts (requireCeo: valid JWT via Supabase Auth + active CEO),
+# which also keeps them working with the newer publishable/secret API keys.
 
 [functions.invite-employee]
 enabled = true
 verify_jwt = false
 import_map = "./functions/invite-employee/deno.json"
-# Uncomment to specify a custom file path to the entrypoint.
-# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
 entrypoint = "./functions/invite-employee/index.ts"
-# Specifies static files to be bundled with the function. Supports glob patterns.
-# For example, if you want to serve static HTML pages in your function:
-# static_files = [ "./functions/invite-employee/*.html" ]
+
+[functions.delete-employee]
+enabled = true
+verify_jwt = false
+import_map = "./functions/delete-employee/deno.json"
+entrypoint = "./functions/delete-employee/index.ts"
+
+[functions.webauthn]
+enabled = true
+verify_jwt = false
+import_map = "./functions/webauthn/deno.json"
+entrypoint = "./functions/webauthn/index.ts"

@@ -1,0 +1,286 @@
+// All Supabase calls live here so views stay free of query strings.
+// Every function throws an Error with a user-readable message on failure.
+import { supabase } from './supabase';
+
+const EMPLOYEE_COLUMNS =
+  'id, auth_user_id, employee_number, first_name, last_name, email, role, is_active, department_id, job_role_id';
+const ATTENDANCE_COLUMNS =
+  'id, employee_id, employee_number, employee_name, work_date, clock_in, clock_out, clockout_type, worked_minutes, clock_in_biometric, clock_out_biometric';
+
+function unwrap({ data, error }) {
+  if (error) throw new Error(error.message || 'Request failed.');
+  return data;
+}
+
+/** Edge Function errors hide the real message in the Response body. */
+async function invoke(name, body) {
+  const { data, error } = await supabase.functions.invoke(name, { body });
+  if (error) {
+    let message = error.message || 'Request failed.';
+    let code;
+    try {
+      const payload = await error.context?.json?.();
+      if (payload?.error) message = payload.error;
+      code = payload?.code;
+    } catch {
+      /* body was not JSON */
+    }
+    throw Object.assign(new Error(message), { code });
+  }
+  if (!data?.success) throw new Error(data?.error || 'Request failed.');
+  return data;
+}
+
+/* ---------- session / profile ---------- */
+
+export async function fetchMyEmployee(authUserId) {
+  const data = unwrap(
+    await supabase.from('employees').select(EMPLOYEE_COLUMNS).eq('auth_user_id', authUserId).maybeSingle(),
+  );
+  if (!data) throw new Error('Your account is not linked to an employee record.');
+  if (!data.is_active) throw new Error('Your employee account is inactive.');
+  return data;
+}
+
+/** Department the signed-in employee heads, or null. */
+export async function fetchHeadedDepartment(employeeId) {
+  return unwrap(
+    await supabase.from('departments').select('id, name').eq('head_employee_id', employeeId).maybeSingle(),
+  );
+}
+
+export async function fetchAppSettings() {
+  const rows = unwrap(await supabase.rpc('get_app_settings'));
+  return Array.isArray(rows) ? rows[0] ?? null : rows;
+}
+
+/* ---------- my attendance ---------- */
+
+export async function fetchAttendanceForDay(employeeId, workDate) {
+  return unwrap(
+    await supabase
+      .from('attendance')
+      .select(ATTENDANCE_COLUMNS)
+      .eq('employee_id', employeeId)
+      .eq('work_date', workDate)
+      .maybeSingle(),
+  );
+}
+
+export async function fetchMyHistory(employeeId, limit = 30) {
+  return (
+    unwrap(
+      await supabase
+        .from('attendance')
+        .select(ATTENDANCE_COLUMNS)
+        .eq('employee_id', employeeId)
+        .order('work_date', { ascending: false })
+        .limit(limit),
+    ) ?? []
+  );
+}
+
+// Time is taken by the database, never by the browser. When biometric checks are
+// required, `verificationId` is the one-time token returned by the webauthn function.
+export async function clockIn(verificationId = null) {
+  return unwrap(await supabase.rpc('clock_in', { p_verification: verificationId }));
+}
+
+export async function clockOut(verificationId = null) {
+  return unwrap(await supabase.rpc('clock_out', { p_verification: verificationId }));
+}
+
+/** { ip, required, on_company_network } as seen by the server. */
+export async function fetchNetworkStatus() {
+  return unwrap(await supabase.rpc('my_network_status'));
+}
+
+/* ---------- biometric devices ---------- */
+
+export const webauthnStep = (step, body = {}) => invoke('webauthn', { step, ...body });
+
+const DEVICE_COLUMNS = 'id, employee_id, device_name, created_at, last_used_at';
+
+export async function listDevices(employeeId) {
+  let query = supabase.from('webauthn_credentials').select(DEVICE_COLUMNS).order('created_at');
+  if (employeeId) query = query.eq('employee_id', employeeId);
+  return unwrap(await query) ?? [];
+}
+
+export async function removeDevice(credentialRowId) {
+  unwrap(await supabase.rpc('remove_webauthn_credential', { p_credential_id: credentialRowId }));
+}
+
+/* ---------- CEO: directory ---------- */
+
+export async function listEmployees() {
+  return (
+    unwrap(await supabase.from('employees').select(EMPLOYEE_COLUMNS).order('employee_number', { ascending: true })) ?? []
+  );
+}
+
+export async function listDepartments() {
+  return (
+    unwrap(await supabase.from('departments').select('id, name, is_active, head_employee_id').order('name')) ?? []
+  );
+}
+
+export async function listJobRoles() {
+  return unwrap(await supabase.from('job_roles').select('id, department_id, name, is_active').order('name')) ?? [];
+}
+
+export async function createJobRole(departmentId, name) {
+  return unwrap(
+    await supabase.from('job_roles').insert({ department_id: departmentId, name: name.trim() }).select().single(),
+  );
+}
+
+export async function updateJobRole(id, patch) {
+  return unwrap(await supabase.from('job_roles').update(patch).eq('id', id).select().single());
+}
+
+export async function setDepartmentHead(departmentId, employeeId) {
+  unwrap(
+    await supabase.rpc('ceo_set_department_head', {
+      p_department_id: departmentId,
+      p_employee_id: employeeId || null,
+    }),
+  );
+}
+
+export async function setEmployeeJobRole(employeeId, jobRoleId) {
+  unwrap(
+    await supabase.rpc('ceo_set_employee_job_role', {
+      p_employee_id: employeeId,
+      p_job_role_id: jobRoleId || null,
+    }),
+  );
+}
+
+/* ---------- CEO: allowed networks ---------- */
+
+export async function listNetworks() {
+  return unwrap(await supabase.from('allowed_networks').select('id, label, network, is_active, created_at').order('created_at')) ?? [];
+}
+
+export async function addMyNetwork(label) {
+  return unwrap(await supabase.rpc('ceo_add_my_network', { p_label: label }));
+}
+
+export async function addNetwork(label, network) {
+  return unwrap(
+    await supabase.from('allowed_networks').insert({ label: label.trim(), network: network.trim() }).select().single(),
+  );
+}
+
+export async function updateNetwork(id, patch) {
+  return unwrap(await supabase.from('allowed_networks').update(patch).eq('id', id).select().single());
+}
+
+export async function deleteNetwork(id) {
+  unwrap(await supabase.from('allowed_networks').delete().eq('id', id));
+}
+
+export async function createDepartment(name) {
+  return unwrap(await supabase.from('departments').insert({ name: name.trim() }).select().single());
+}
+
+export async function updateDepartment(id, patch) {
+  return unwrap(await supabase.from('departments').update(patch).eq('id', id).select().single());
+}
+
+export async function setEmployeeDepartment(employeeId, departmentId) {
+  unwrap(
+    await supabase.rpc('ceo_set_employee_department', {
+      p_employee_id: employeeId,
+      p_department_id: departmentId || null,
+    }),
+  );
+}
+
+export const inviteEmployee = (payload) => invoke('invite-employee', payload);
+export const resendInvite = (employeeId) => invoke('invite-employee', { employeeId });
+export const deleteEmployee = (employeeId) => invoke('delete-employee', { employeeId });
+
+/* ---------- CEO: attendance ---------- */
+
+export async function fetchAttendanceOnDate(workDate) {
+  return unwrap(await supabase.from('attendance').select(ATTENDANCE_COLUMNS).eq('work_date', workDate)) ?? [];
+}
+
+/** All rows in [from, to] (inclusive), paged past the API's 1000-row cap. */
+export async function fetchAttendanceRange({ from, to, employeeId, employeeIds }) {
+  const PAGE = 1000;
+  const rows = [];
+  for (let offset = 0; ; offset += PAGE) {
+    let query = supabase
+      .from('attendance')
+      .select(ATTENDANCE_COLUMNS)
+      .gte('work_date', from)
+      .lte('work_date', to)
+      .order('work_date', { ascending: false })
+      .order('clock_in', { ascending: false })
+      .range(offset, offset + PAGE - 1);
+    if (employeeId) query = query.eq('employee_id', employeeId);
+    if (employeeIds) query = query.in('employee_id', employeeIds);
+    const page = unwrap(await query) ?? [];
+    rows.push(...page);
+    if (page.length < PAGE) return rows;
+  }
+}
+
+export async function saveAttendance({ id = null, employeeId, clockIn, clockOut, reason }) {
+  return unwrap(
+    await supabase.rpc('ceo_save_attendance', {
+      p_attendance_id: id,
+      p_employee_id: employeeId,
+      p_clock_in: clockIn,
+      p_clock_out: clockOut,
+      p_reason: reason,
+    }),
+  );
+}
+
+export async function deleteAttendance(id, reason) {
+  unwrap(await supabase.rpc('ceo_delete_attendance', { p_attendance_id: id, p_reason: reason }));
+}
+
+/* ---------- CEO: settings & audit ---------- */
+
+export async function fetchCompanySettings() {
+  return unwrap(await supabase.from('company_settings').select('*').eq('id', 1).single());
+}
+
+export async function saveCompanySettings(patch) {
+  return unwrap(await supabase.from('company_settings').update(patch).eq('id', 1).select().single());
+}
+
+export async function fetchAuditLogs({ limit = 50, offset = 0 } = {}) {
+  return (
+    unwrap(
+      await supabase
+        .from('audit_logs')
+        .select('id, actor_user_id, employee_id, action, description, ip_address, metadata, created_at')
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1),
+    ) ?? []
+  );
+}
+
+/* ---------- auth ---------- */
+
+export async function signIn(email, password) {
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) throw new Error(error.message);
+}
+
+export async function signOut() {
+  await supabase.auth.signOut();
+}
+
+export async function requestPasswordReset(email) {
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/set-password`,
+  });
+  if (error) throw new Error(error.message);
+}

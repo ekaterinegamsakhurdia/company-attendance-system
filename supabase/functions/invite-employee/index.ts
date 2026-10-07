@@ -1,468 +1,210 @@
-import { createClient } from "@supabase/supabase-js";
+// Creates an employee and sends the invitation e-mail, or re-sends it.
+//
+// Body (create + invite):
+//   { employeeNumber, firstName, lastName, email, departmentId? }
+// Body (resend for an existing employee):
+//   { employeeId }
+//
+// Create + invite is all-or-nothing: if the invitation cannot be sent the
+// employee row that was just created is removed again.
+import {
+  audit,
+  HttpError,
+  optionalUuid,
+  readJson,
+  requireCeo,
+  requireEmail,
+  requireText,
+  requireUuid,
+  serve,
+  type CeoContext,
+} from "../_shared/common.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+type EmployeeRow = {
+  id: string;
+  employee_number: string;
+  first_name: string;
+  last_name: string;
+  email: string | null;
+  auth_user_id: string | null;
+  is_active: boolean;
 };
 
-Deno.serve(async (req) => {
-  // ---------------------------------------------------------
-  // CORS
-  // ---------------------------------------------------------
-  if (req.method === "OPTIONS") {
-    return new Response("ok", {
-      headers: corsHeaders,
-    });
+const COLUMNS =
+  "id, employee_number, first_name, last_name, email, auth_user_id, is_active";
+
+function redirectUrl(): string {
+  const siteUrl = Deno.env.get("SITE_URL")?.trim().replace(/\/+$/, "");
+  if (!siteUrl) {
+    console.error("SITE_URL secret is not set.");
+    throw new HttpError(
+      500,
+      "SITE_URL is not configured on the server, so invitation links cannot be created.",
+    );
+  }
+  return `${siteUrl}/set-password`;
+}
+
+async function sendInvite(ctx: CeoContext, emp: EmployeeRow, email: string) {
+  const { data, error } = await ctx.admin.auth.admin.inviteUserByEmail(email, {
+    data: {
+      employee_id: emp.id,
+      employee_number: emp.employee_number,
+      first_name: emp.first_name,
+      last_name: emp.last_name,
+    },
+    redirectTo: redirectUrl(),
+  });
+  if (error) {
+    console.error("Invite error:", error.message);
+    throw new HttpError(400, error.message);
+  }
+  if (!data?.user?.id) {
+    throw new HttpError(500, "Invitation was sent but no user id was returned.");
+  }
+  return data.user.id;
+}
+
+async function createAndInvite(ctx: CeoContext, body: Record<string, unknown>) {
+  const employeeNumber = requireText(body.employeeNumber, "Employee number", 32);
+  const firstName = requireText(body.firstName, "First name");
+  const lastName = requireText(body.lastName, "Last name");
+  const email = requireEmail(body.email);
+  const departmentId = optionalUuid(body.departmentId, "departmentId");
+  const jobRoleId = optionalUuid(body.jobRoleId, "jobRoleId");
+  if (jobRoleId && !departmentId) {
+    throw new HttpError(400, "Choose a department before choosing a job role.");
   }
 
+  // 1. Create the row (the new row can be rolled back if the invite fails).
+  const { data: created, error: insertError } = await ctx.admin
+    .from("employees")
+    .insert({
+      employee_number: employeeNumber,
+      first_name: firstName,
+      last_name: lastName,
+      email,
+      department_id: departmentId,
+      job_role_id: jobRoleId,
+      role: "employee",
+      is_active: true,
+    })
+    .select(COLUMNS)
+    .single();
+
+  if (insertError) {
+    if (insertError.code === "23505") {
+      const text = `${insertError.message} ${insertError.details ?? ""}`;
+      throw new HttpError(
+        409,
+        text.includes("employee_number")
+          ? "An employee with this number already exists."
+          : "An employee with this email already exists.",
+      );
+    }
+    if (insertError.code === "23503") {
+      throw new HttpError(400, "That job role does not belong to the selected department.");
+    }
+    console.error("Employee insert error:", insertError);
+    throw new HttpError(500, "Could not create the employee record.");
+  }
+
+  const emp = created as EmployeeRow;
+
+  // 2. Invite; on failure remove the row again.
+  let authUserId: string;
   try {
-    // ---------------------------------------------------------
-    // 1. Get Authorization header
-    // ---------------------------------------------------------
-    const authHeader = req.headers.get("Authorization");
+    authUserId = await sendInvite(ctx, emp, email);
+  } catch (err) {
+    await ctx.admin.from("employees").delete().eq("id", emp.id);
+    throw err;
+  }
 
-    console.log(
-      "Authorization header present:",
-      !!authHeader
-    );
+  // 3. Link; on failure remove both so nothing is left half-created.
+  const { error: linkError } = await ctx.admin
+    .from("employees")
+    .update({ auth_user_id: authUserId })
+    .eq("id", emp.id);
 
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({
-          error: "Missing authorization header.",
-        }),
-        {
-          status: 401,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-    }
-
-    // ---------------------------------------------------------
-    // 2. Supabase environment variables
-    // ---------------------------------------------------------
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
-    const serviceRoleKey = Deno.env.get(
-      "SUPABASE_SERVICE_ROLE_KEY"
-    );
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      throw new Error(
-        "SUPABASE_URL or SUPABASE_ANON_KEY is missing."
-      );
-    }
-
-    if (!serviceRoleKey) {
-      throw new Error(
-        "SUPABASE_SERVICE_ROLE_KEY is missing."
-      );
-    }
-
-    // ---------------------------------------------------------
-    // 3. Client using the logged-in user's JWT
-    // ---------------------------------------------------------
-    const userSupabase = createClient(
-      supabaseUrl,
-      supabaseAnonKey,
-      {
-        global: {
-          headers: {
-            Authorization: authHeader,
-          },
-        },
-      }
-    );
-
-    // ---------------------------------------------------------
-    // 4. Get currently authenticated user
-    // ---------------------------------------------------------
-    const {
-      data: { user },
-      error: userError,
-    } = await userSupabase.auth.getUser();
-
-    console.log(
-      "Authenticated user:",
-      user?.id ?? "NONE"
-    );
-
-    if (userError) {
-      console.error(
-        "Authentication error:",
-        userError
-      );
-
-      return new Response(
-        JSON.stringify({
-          error: "Authentication failed.",
-          details: userError.message,
-        }),
-        {
-          status: 401,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-    }
-
-    if (!user) {
-      return new Response(
-        JSON.stringify({
-          error: "You must be logged in.",
-        }),
-        {
-          status: 401,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-    }
-
-    // ---------------------------------------------------------
-    // 5. Admin client
-    // ---------------------------------------------------------
-    const adminSupabase = createClient(
-      supabaseUrl,
-      serviceRoleKey,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    );
-
-    // ---------------------------------------------------------
-    // 6. Verify CEO
-    // ---------------------------------------------------------
-    const {
-      data: ceoEmployee,
-      error: ceoError,
-    } = await adminSupabase
-      .from("employees")
-      .select("id, role, is_active")
-      .eq("auth_user_id", user.id)
-      .eq("role", "ceo")
-      .eq("is_active", true)
-      .maybeSingle();
-
-    if (ceoError) {
-      console.error(
-        "CEO check error:",
-        ceoError
-      );
-
-      return new Response(
-        JSON.stringify({
-          error: "Could not verify CEO permissions.",
-          details: ceoError.message,
-        }),
-        {
-          status: 500,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-    }
-
-    if (!ceoEmployee) {
-      console.error(
-        "User is not an active CEO:",
-        user.id
-      );
-
-      return new Response(
-        JSON.stringify({
-          error:
-            "You do not have permission to invite employees.",
-        }),
-        {
-          status: 403,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-    }
-
-    // ---------------------------------------------------------
-    // 7. Read request body
-    // ---------------------------------------------------------
-    const body = await req.json();
-    const employeeId = body?.employeeId;
-
-    if (!employeeId) {
-      return new Response(
-        JSON.stringify({
-          error: "employeeId is required.",
-        }),
-        {
-          status: 400,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-    }
-
-    // ---------------------------------------------------------
-    // 8. Find employee
-    // ---------------------------------------------------------
-    const {
-      data: employee,
-      error: employeeError,
-    } = await adminSupabase
-      .from("employees")
-      .select(
-        "id, employee_number, first_name, last_name, email, auth_user_id, is_active"
-      )
-      .eq("id", employeeId)
-      .maybeSingle();
-
-    if (employeeError) {
-      console.error(
-        "Employee lookup error:",
-        employeeError
-      );
-
-      return new Response(
-        JSON.stringify({
-          error: "Could not find employee.",
-          details: employeeError.message,
-        }),
-        {
-          status: 404,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-    }
-
-    if (!employee) {
-      return new Response(
-        JSON.stringify({
-          error: "Employee not found.",
-        }),
-        {
-          status: 404,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-    }
-
-    // ---------------------------------------------------------
-    // 9. Check email
-    // ---------------------------------------------------------
-    if (!employee.email) {
-      return new Response(
-        JSON.stringify({
-          error:
-            "This employee does not have an email address.",
-        }),
-        {
-          status: 400,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-    }
-
-    // ---------------------------------------------------------
-    // 10. Check existing Auth account
-    // ---------------------------------------------------------
-    if (employee.auth_user_id) {
-      return new Response(
-        JSON.stringify({
-          error:
-            "This employee already has an account.",
-        }),
-        {
-          status: 400,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-    }
-
-    // ---------------------------------------------------------
-    // 11. Invitation redirect
-    // ---------------------------------------------------------
-    const siteUrl =
-      Deno.env.get("SITE_URL") ||
-      "http://localhost:5173";
-
-    const redirectTo =
-      `${siteUrl}/set-password`;
-
-    console.log(
-      "Sending invitation to:",
-      employee.email
-    );
-
-    console.log(
-      "Redirect URL:",
-      redirectTo
-    );
-
-    // ---------------------------------------------------------
-    // 12. Send invitation
-    // ---------------------------------------------------------
-    const {
-      data: invitedUser,
-      error: inviteError,
-    } =
-      await adminSupabase.auth.admin.inviteUserByEmail(
-        employee.email,
-        {
-          data: {
-            employee_id: employee.id,
-            employee_number:
-              employee.employee_number,
-            first_name: employee.first_name,
-            last_name: employee.last_name,
-          },
-          redirectTo,
-        }
-      );
-
-    if (inviteError) {
-      console.error(
-        "Invite error:",
-        inviteError
-      );
-
-      return new Response(
-        JSON.stringify({
-          error: inviteError.message,
-        }),
-        {
-          status: 400,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-    }
-
-    if (!invitedUser?.user?.id) {
-      return new Response(
-        JSON.stringify({
-          error:
-            "Invitation was created but no user ID was returned.",
-        }),
-        {
-          status: 500,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-    }
-
-    // ---------------------------------------------------------
-    // 13. Link Auth user to employee
-    // ---------------------------------------------------------
-    const {
-      error: updateError,
-    } = await adminSupabase
-      .from("employees")
-      .update({
-        auth_user_id:
-          invitedUser.user.id,
-      })
-      .eq("id", employee.id);
-
-    if (updateError) {
-      console.error(
-        "Employee linking error:",
-        updateError
-      );
-
-      return new Response(
-        JSON.stringify({
-          error:
-            "Account was created, but the employee could not be linked.",
-          details: updateError.message,
-        }),
-        {
-          status: 500,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-    }
-
-    // ---------------------------------------------------------
-    // 14. Success
-    // ---------------------------------------------------------
-    console.log(
-      "Invitation successfully sent:",
-      employee.email
-    );
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message:
-          `Invitation sent to ${employee.email}`,
-        userId:
-          invitedUser.user.id,
-      }),
-      {
-        status: 200,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-  } catch (error) {
-    console.error(
-      "Unexpected error:",
-      error
-    );
-
-    return new Response(
-      JSON.stringify({
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unexpected server error.",
-      }),
-      {
-        status: 500,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      }
+  if (linkError) {
+    console.error("Employee link error:", linkError);
+    await ctx.admin.auth.admin.deleteUser(authUserId);
+    await ctx.admin.from("employees").delete().eq("id", emp.id);
+    throw new HttpError(
+      500,
+      "The invitation could not be completed. Nothing was created; please try again.",
     );
   }
+
+  await audit(ctx, "employee.invite", emp.id, `Invited ${firstName} ${lastName}`, {
+    employee_number: employeeNumber,
+    email,
+    department_id: departmentId,
+    job_role_id: jobRoleId,
+  });
+
+  return {
+    message: `Invitation sent to ${email}`,
+    employeeId: emp.id,
+    created: true,
+  };
+}
+
+async function resendInvite(ctx: CeoContext, employeeId: string) {
+  const { data, error } = await ctx.admin
+    .from("employees")
+    .select(COLUMNS)
+    .eq("id", employeeId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Employee lookup error:", error);
+    throw new HttpError(500, "Could not look up the employee.");
+  }
+  if (!data) throw new HttpError(404, "Employee not found.");
+
+  const emp = data as EmployeeRow;
+  if (!emp.is_active) throw new HttpError(400, "This employee is inactive.");
+  if (!emp.email) {
+    throw new HttpError(400, "This employee does not have an email address.");
+  }
+
+  if (emp.auth_user_id) {
+    const { data: authData, error: authError } = await ctx.admin.auth.admin
+      .getUserById(emp.auth_user_id);
+    if (authError || !authData?.user) {
+      throw new HttpError(500, "Could not check the employee's login account.");
+    }
+    if (authData.user.last_sign_in_at) {
+      throw new HttpError(400, "This employee has already activated their account.");
+    }
+    // Account exists but was never used: re-sending the invite is safe.
+    await sendInvite(ctx, emp, emp.email);
+  } else {
+    const authUserId = await sendInvite(ctx, emp, emp.email);
+    const { error: linkError } = await ctx.admin
+      .from("employees")
+      .update({ auth_user_id: authUserId })
+      .eq("id", emp.id);
+    if (linkError) {
+      console.error("Employee link error:", linkError);
+      await ctx.admin.auth.admin.deleteUser(authUserId);
+      throw new HttpError(500, "The invitation could not be completed. Please try again.");
+    }
+  }
+
+  await audit(ctx, "employee.invite_resend", emp.id,
+    `Re-sent invitation to ${emp.first_name} ${emp.last_name}`, { email: emp.email });
+
+  return { message: `Invitation sent to ${emp.email}`, employeeId: emp.id, created: false };
+}
+
+serve(async (req) => {
+  const ctx = await requireCeo(req);
+  const body = await readJson(req);
+
+  if (body.employeeId !== undefined) {
+    return await resendInvite(ctx, requireUuid(body.employeeId, "employeeId"));
+  }
+  return await createAndInvite(ctx, body);
 });
