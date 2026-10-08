@@ -29,7 +29,9 @@ export default function ReportsTab({ directory, readOnly = false }) {
   const deptName = (id) => directory.departments?.find((d) => d.id === id)?.name ?? '';
   const roleName = (id) => directory.jobRoles?.find((r) => r.id === id)?.name ?? '';
 
-  const pickable = directory.employees.filter((e) => !departmentId || e.department_id === departmentId);
+  const pickable = directory.employees.filter(
+    (e) => e.role !== 'developer' && (!departmentId || e.department_id === departmentId),
+  );
 
   // A department filter without a person narrows the query to that department's employees.
   const scopeIds = departmentId && !employeeId ? pickable.map((e) => e.id) : null;

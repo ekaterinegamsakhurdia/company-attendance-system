@@ -15,7 +15,7 @@ export default function TeamOverview({ directory, title = 'Team Overview', onRef
   const team = useLoad(() => fetchAttendanceOnDate(today), [today]);
 
   const records = team.data ?? [];
-  const active = directory.employees.filter((e) => e.is_active);
+  const active = directory.employees.filter((e) => e.is_active && e.role !== 'developer'); // developers do not clock in
   const byEmployee = new Map(records.map((r) => [r.employee_id, r]));
   const deptName = (id) => directory.departments?.find((d) => d.id === id)?.name ?? '-';
   const roleName = (id) => directory.jobRoles?.find((r) => r.id === id)?.name;

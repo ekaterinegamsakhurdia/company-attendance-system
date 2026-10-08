@@ -16,6 +16,10 @@ const ACTION_LABELS = {
   'employee.invite_resend': 'Invitation re-sent',
   'employee.delete': 'Employee deleted',
   'employee.department': 'Department changed',
+  'employee.role': 'Account type changed',
+  'employee.update': 'Employee data edited',
+  'employee.email': 'E-mail changed',
+  'job_roles.delete': 'Job role removed',
   'company_settings.update': 'Settings changed',
   'departments.insert': 'Department created',
   'departments.update': 'Department changed',
@@ -78,7 +82,7 @@ export default function AuditTab({ directory }) {
       ) : (
         <DataTable headers={['When', 'Action', 'By', 'Employee', 'Details']} minWidth={820}>
           {rows.map((log) => {
-            const actor = log.actor_user_id ? personName(byAuthId.get(log.actor_user_id)) ?? 'Unknown user' : 'System';
+            const actor = log.actor_user_id ? personName(byAuthId.get(log.actor_user_id)) ?? 'Developer / removed user' : 'System';
             const subject = personName(byId.get(log.employee_id)) ?? log.metadata?.name ?? log.metadata?.employee_name ?? '-';
             return (
               <tr key={log.id}>

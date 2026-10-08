@@ -111,7 +111,7 @@ export async function removeDevice(credentialRowId) {
   unwrap(await supabase.rpc('remove_webauthn_credential', { p_credential_id: credentialRowId }));
 }
 
-/* ---------- CEO: directory ---------- */
+/* ---------- CEO / developer: directory ---------- */
 
 export async function listEmployees() {
   return (
@@ -189,14 +189,46 @@ export async function updateDepartment(id, patch) {
   return unwrap(await supabase.from('departments').update(patch).eq('id', id).select().single());
 }
 
-export async function setEmployeeDepartment(employeeId, departmentId) {
+/** Department and job role are always set together (the role is required when the department has roles). */
+export async function setEmployeeDepartment(employeeId, departmentId, jobRoleId = null) {
   unwrap(
     await supabase.rpc('ceo_set_employee_department', {
       p_employee_id: employeeId,
       p_department_id: departmentId || null,
+      p_job_role_id: jobRoleId || null,
     }),
   );
 }
+
+/* ---------- developer ---------- */
+
+export async function setEmployeeAccountType(employeeId, role) {
+  unwrap(await supabase.rpc('dev_set_employee_role', { p_employee_id: employeeId, p_role: role }));
+}
+
+export async function updateEmployee(employeeId, f) {
+  unwrap(
+    await supabase.rpc('dev_update_employee', {
+      p_employee_id: employeeId,
+      p_employee_number: f.employeeNumber,
+      p_first_name: f.firstName,
+      p_last_name: f.lastName,
+      p_department_id: f.departmentId || null,
+      p_job_role_id: f.jobRoleId || null,
+      p_is_active: f.isActive,
+    }),
+  );
+}
+
+export async function deleteDepartment(departmentId) {
+  unwrap(await supabase.rpc('dev_delete_department', { p_department_id: departmentId }));
+}
+
+export async function deleteJobRole(jobRoleId) {
+  unwrap(await supabase.rpc('dev_delete_job_role', { p_job_role_id: jobRoleId }));
+}
+
+export const changeEmail = (employeeId, email) => invoke('change-email', { employeeId, email });
 
 export const inviteEmployee = (payload) => invoke('invite-employee', payload);
 export const resendInvite = (employeeId) => invoke('invite-employee', { employeeId });

@@ -26,7 +26,7 @@ export function Modal({ title, description, onClose, children }) {
   );
 }
 
-export function ConfirmDialog({ title, message, confirmLabel = 'Confirm', danger, busy, onConfirm, onCancel }) {
+export function ConfirmDialog({ title, message, confirmLabel = 'Confirm', danger, busy, confirmDisabled, onConfirm, onCancel }) {
   return (
     <Modal title={title} onClose={busy ? () => {} : onCancel}>
       <div style={{ whiteSpace: 'pre-line', marginBottom: 20 }}>{message}</div>
@@ -34,7 +34,7 @@ export function ConfirmDialog({ title, message, confirmLabel = 'Confirm', danger
         <PillButton variant="secondary" onClick={onCancel} disabled={busy}>
           Cancel
         </PillButton>
-        <PillButton variant={danger ? 'danger' : 'primary'} onClick={onConfirm} disabled={busy}>
+        <PillButton variant={danger ? 'danger' : 'primary'} onClick={onConfirm} disabled={busy || confirmDisabled}>
           {busy ? 'Working…' : confirmLabel}
         </PillButton>
       </div>

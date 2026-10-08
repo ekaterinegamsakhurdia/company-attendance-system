@@ -1,23 +1,50 @@
 import { useState } from 'react';
-import { Fingerprint, Mail, Trash2, UserPlus, Users } from 'lucide-react';
+import { Fingerprint, Mail, Pencil, Trash2, UserPlus, Users } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useLoad } from '../../hooks/useLoad';
 import { useToast } from '../../components/Toast';
 import { ConfirmDialog, Modal } from '../../components/Modal';
 import { Alert, DataTable, Field, Message, Pill, PillButton, SectionCard } from '../../components/ui';
 import {
+  changeEmail,
   deleteEmployee,
   inviteEmployee,
   listDevices,
   removeDevice,
   resendInvite,
+  setEmployeeAccountType,
   setEmployeeDepartment,
   setEmployeeJobRole,
+  updateEmployee,
 } from '../../services/api';
 import { formatDateTime } from '../../lib/time';
 
-const EMPTY = { employeeNumber: '', firstName: '', lastName: '', email: '', departmentId: '', jobRoleId: '' };
+const EMPTY = {
+  role: 'employee',
+  employeeNumber: '',
+  firstName: '',
+  lastName: '',
+  email: '',
+  departmentId: '',
+  jobRoleId: '',
+};
 
+const ACCOUNT_TYPES = [
+  { value: 'employee', label: 'Employee' },
+  { value: 'ceo', label: 'CEO' },
+  { value: 'developer', label: 'Developer' },
+];
+const accountLabel = (role) => ACCOUNT_TYPES.find((t) => t.value === role)?.label ?? role;
+
+const TYPE_WARNING = {
+  developer:
+    'A developer can see and change everything in the app, including CEO accounts. Developers are hidden from CEOs, ' +
+    'belong to no department and do not clock in.',
+  ceo: 'A CEO can see all attendance, correct records and manage employees, departments and settings.',
+  employee: 'They become a normal employee. Set their department and job role afterwards.',
+};
+
+/* ------------------------------------------------------------------ */
 function DevicesModal({ employee, devices, timezone, onClose, onChanged }) {
   const toast = useToast();
   const [busyId, setBusyId] = useState(null);
@@ -68,8 +95,177 @@ function DevicesModal({ employee, devices, timezone, onClose, onChanged }) {
   );
 }
 
+/* ------------------------------------------------------------------ */
+/** Moving someone into a department that has job roles also needs the role. */
+function ChooseRoleModal({ employee, department, roles, busy, onConfirm, onCancel }) {
+  const [roleId, setRoleId] = useState('');
+  return (
+    <Modal
+      title={`Move ${employee.first_name} ${employee.last_name} to ${department.name}`}
+      description={`${department.name} has job roles, so choose one for ${employee.first_name}.`}
+      onClose={busy ? () => {} : onCancel}
+    >
+      <Field label="Job role" id="move-role">
+        <select id="move-role" className="la-input" value={roleId} onChange={(e) => setRoleId(e.target.value)}>
+          <option value="" disabled>Select job role…</option>
+          {roles.map((r) => (
+            <option key={r.id} value={r.id}>{r.name}</option>
+          ))}
+        </select>
+      </Field>
+      <div className="la-modal-actions">
+        <PillButton variant="secondary" onClick={onCancel} disabled={busy}>
+          Cancel
+        </PillButton>
+        <PillButton onClick={() => onConfirm(roleId)} disabled={busy || !roleId}>
+          {busy ? 'Saving…' : 'Move'}
+        </PillButton>
+      </div>
+    </Modal>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/** Developer only: edit everything about one account. */
+function EditEmployeeModal({ employee, departments, jobRoles, isSelf, onClose, onSaved }) {
+  const toast = useToast();
+  const standalone = employee.role !== 'employee'; // CEOs / developers belong to no department
+  const [form, setForm] = useState({
+    employeeNumber: employee.employee_number,
+    firstName: employee.first_name,
+    lastName: employee.last_name,
+    email: employee.email ?? '',
+    departmentId: employee.department_id ?? '',
+    jobRoleId: employee.job_role_id ?? '',
+    isActive: employee.is_active,
+  });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
+
+  const deptRoles = jobRoles.filter((r) => r.department_id === form.departmentId && (r.is_active || r.id === employee.job_role_id));
+  const hasRoles = deptRoles.some((r) => r.is_active);
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setError('');
+    if (!standalone && form.isActive) {
+      if (!form.departmentId) return setError('Choose a department.');
+      if (hasRoles && !form.jobRoleId) return setError('Choose a job role.');
+    }
+    setBusy(true);
+    try {
+      await updateEmployee(employee.id, {
+        ...form,
+        departmentId: standalone ? null : form.departmentId,
+        jobRoleId: standalone ? null : form.jobRoleId,
+      });
+      const emailChanged = form.email.trim().toLowerCase() !== (employee.email ?? '').toLowerCase();
+      if (emailChanged) {
+        try {
+          const res = await changeEmail(employee.id, form.email.trim());
+          toast.success(res.message);
+        } catch (err) {
+          toast.success('Saved.');
+          toast.error(`The e-mail was not changed: ${err.message}`);
+          onSaved();
+          return;
+        }
+      } else {
+        toast.success('Saved.');
+      }
+      onSaved();
+      onClose();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal title={`Edit ${employee.first_name} ${employee.last_name}`} onClose={busy ? () => {} : onClose}>
+      <form onSubmit={handleSubmit}>
+        <div className="la-field-grid">
+          <Field label="Employee Number" id="edit-number">
+            <input id="edit-number" className="la-input" value={form.employeeNumber} onChange={set('employeeNumber')} maxLength={32} required />
+          </Field>
+          <Field label="Account type" id="edit-type">
+            <input id="edit-type" className="la-input" value={accountLabel(employee.role)} disabled readOnly />
+          </Field>
+          <Field label="First Name" id="edit-first">
+            <input id="edit-first" className="la-input" value={form.firstName} onChange={set('firstName')} maxLength={100} required />
+          </Field>
+          <Field label="Last Name" id="edit-last">
+            <input id="edit-last" className="la-input" value={form.lastName} onChange={set('lastName')} maxLength={100} required />
+          </Field>
+          {!standalone && (
+            <Field label="Department" id="edit-dept">
+              <select
+                id="edit-dept"
+                className="la-input"
+                value={form.departmentId}
+                onChange={(e) => setForm((f) => ({ ...f, departmentId: e.target.value, jobRoleId: '' }))}
+              >
+                <option value="" disabled>Select department…</option>
+                {departments
+                  .filter((d) => d.is_active || d.id === employee.department_id)
+                  .map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+              </select>
+            </Field>
+          )}
+          {!standalone && hasRoles && (
+            <Field label="Job role" id="edit-role">
+              <select id="edit-role" className="la-input" value={form.jobRoleId} onChange={set('jobRoleId')}>
+                <option value="" disabled>Select job role…</option>
+                {deptRoles.map((r) => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </select>
+            </Field>
+          )}
+        </div>
+        <Field
+          label="Email"
+          id="edit-email"
+          hint="Changing it also changes the address they log in with. If they have not activated their account yet, use Resend invite afterwards."
+        >
+          <input id="edit-email" type="email" className="la-input" value={form.email} onChange={set('email')} required />
+        </Field>
+        <label className="la-tile" style={{ cursor: isSelf ? 'default' : 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={form.isActive}
+            disabled={isSelf}
+            onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
+          />
+          <div className="la-tile-text">
+            <strong>Active</strong>
+            <div className="la-meta">
+              {isSelf ? 'You cannot deactivate your own account.' : 'An inactive account cannot log in or clock in.'}
+            </div>
+          </div>
+        </label>
+        {error && <Alert error>{error}</Alert>}
+        <div className="la-modal-actions">
+          <PillButton variant="secondary" onClick={onClose} disabled={busy}>
+            Cancel
+          </PillButton>
+          <button type="submit" className="la-btn primary" disabled={busy}>
+            {busy ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 export default function EmployeesTab({ directory }) {
   const { employee: me, timezone, settings } = useAuth();
+  const isDeveloper = me.role === 'developer';
   const toast = useToast();
   const { employees, departments, jobRoles, reloadEmployees, reloadDepartments } = directory;
   const devices = useLoad(() => listDevices());
@@ -81,25 +277,38 @@ export default function EmployeesTab({ directory }) {
   const [rowBusy, setRowBusy] = useState(null);
   const [toDelete, setToDelete] = useState(null);
   const [devicesFor, setDevicesFor] = useState(null);
+  const [editing, setEditing] = useState(null);
+  const [moving, setMoving] = useState(null); // { emp, departmentId }
+  const [typeChange, setTypeChange] = useState(null); // { emp, role }
+  const [filter, setFilter] = useState('all');
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
+  const activeRolesFor = (departmentId) => jobRoles.filter((r) => r.department_id === departmentId && r.is_active);
   const rolesFor = (departmentId, includeId) =>
     jobRoles.filter((r) => r.department_id === departmentId && (r.is_active || r.id === includeId));
   const deviceList = (employeeId) => (devices.data ?? []).filter((d) => d.employee_id === employeeId);
   const headOf = (employeeId) => departments.find((d) => d.head_employee_id === employeeId);
 
+  const standaloneForm = form.role !== 'employee';
+  const formRoles = activeRolesFor(form.departmentId);
+
   async function handleAdd(event) {
     event.preventDefault();
-    setAdding(true);
     setFormError('');
+    if (!standaloneForm) {
+      if (!form.departmentId) return setFormError('Choose a department.');
+      if (formRoles.length > 0 && !form.jobRoleId) return setFormError('Choose a job role.');
+    }
+    setAdding(true);
     try {
       const res = await inviteEmployee({
+        role: form.role,
         employeeNumber: form.employeeNumber,
         firstName: form.firstName,
         lastName: form.lastName,
         email: form.email,
-        departmentId: form.departmentId || null,
-        jobRoleId: form.jobRoleId || null,
+        departmentId: standaloneForm ? null : form.departmentId,
+        jobRoleId: standaloneForm ? null : form.jobRoleId || null,
       });
       toast.success(res.message);
       setForm(EMPTY);
@@ -127,16 +336,34 @@ export default function EmployeesTab({ directory }) {
 
   const handleResend = (emp) => withRow(emp.id, () => resendInvite(emp.id).then((r) => toast.success(r.message)));
 
-  const handleDepartment = (emp, departmentId) =>
-    withRow(
-      emp.id,
-      () => setEmployeeDepartment(emp.id, departmentId),
-      () => {
-        toast.success('Department updated.');
-        reloadEmployees();
-        reloadDepartments(); // moving a head out of their department clears the headship
-      },
-    );
+  const afterOrgChange = (message) => () => {
+    toast.success(message);
+    reloadEmployees();
+    reloadDepartments(); // moving a head out of their department clears the headship
+  };
+
+  function handleDepartment(emp, departmentId) {
+    // A department that has job roles needs a role too, so ask for it before saving.
+    if (activeRolesFor(departmentId).length > 0) {
+      setMoving({ emp, departmentId });
+      return;
+    }
+    withRow(emp.id, () => setEmployeeDepartment(emp.id, departmentId, null), afterOrgChange('Department updated.'));
+  }
+
+  async function confirmMove(jobRoleId) {
+    const { emp, departmentId } = moving;
+    setRowBusy(emp.id);
+    try {
+      await setEmployeeDepartment(emp.id, departmentId, jobRoleId);
+      setMoving(null);
+      afterOrgChange('Department and job role updated.')();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setRowBusy(null);
+    }
+  }
 
   const handleJobRole = (emp, jobRoleId) =>
     withRow(
@@ -147,6 +374,22 @@ export default function EmployeesTab({ directory }) {
         reloadEmployees();
       },
     );
+
+  async function confirmTypeChange() {
+    const { emp, role } = typeChange;
+    setRowBusy(emp.id);
+    try {
+      await setEmployeeAccountType(emp.id, role);
+      toast.success(`${emp.first_name} is now ${role === 'employee' ? 'an employee' : `a ${accountLabel(role)}`}.`);
+      setTypeChange(null);
+      reloadEmployees();
+      reloadDepartments();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setRowBusy(null);
+    }
+  }
 
   async function confirmDelete() {
     const emp = toDelete;
@@ -166,39 +409,41 @@ export default function EmployeesTab({ directory }) {
   }
 
   const activeDepartments = departments.filter((d) => d.is_active);
-  const formRoles = rolesFor(form.departmentId);
+  const visible = employees.filter((e) => filter === 'all' || e.role === filter);
+  const counts = ACCOUNT_TYPES.map((t) => ({ ...t, n: employees.filter((e) => e.role === t.value).length }));
 
   return (
     <>
       <SectionCard
         icon={Users}
         eyebrow="People"
-        title="Employees"
+        title={isDeveloper ? 'Accounts' : 'Employees'}
         action={
           <PillButton size="sm" icon={UserPlus} onClick={() => setShowForm((v) => !v)}>
-            {showForm ? 'Cancel' : 'Add Employee'}
+            {showForm ? 'Cancel' : isDeveloper ? 'Add Account' : 'Add Employee'}
           </PillButton>
         }
       >
         {showForm && (
           <form onSubmit={handleAdd} className="la-form-panel">
-            <h3>Add Employee</h3>
+            <h3>{isDeveloper ? 'Add Account' : 'Add Employee'}</h3>
             <div className="la-field-grid">
+              {isDeveloper && (
+                <Field label="Account type" id="new-type" hint="CEOs and developers belong to no department.">
+                  <select
+                    id="new-type"
+                    className="la-input"
+                    value={form.role}
+                    onChange={(e) => setForm((f) => ({ ...f, role: e.target.value, departmentId: '', jobRoleId: '' }))}
+                  >
+                    {ACCOUNT_TYPES.map((t) => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
+                  </select>
+                </Field>
+              )}
               <Field label="Employee Number" id="new-number">
                 <input id="new-number" className="la-input" value={form.employeeNumber} onChange={set('employeeNumber')} placeholder="EMP006" maxLength={32} required />
-              </Field>
-              <Field label="Department" id="new-dept">
-                <select
-                  id="new-dept"
-                  className="la-input"
-                  value={form.departmentId}
-                  onChange={(e) => setForm((f) => ({ ...f, departmentId: e.target.value, jobRoleId: '' }))}
-                >
-                  <option value="">None</option>
-                  {activeDepartments.map((d) => (
-                    <option key={d.id} value={d.id}>{d.name}</option>
-                  ))}
-                </select>
               </Field>
               <Field label="First Name" id="new-first">
                 <input id="new-first" className="la-input" value={form.firstName} onChange={set('firstName')} maxLength={100} required />
@@ -206,10 +451,26 @@ export default function EmployeesTab({ directory }) {
               <Field label="Last Name" id="new-last">
                 <input id="new-last" className="la-input" value={form.lastName} onChange={set('lastName')} maxLength={100} required />
               </Field>
-              {formRoles.length > 0 && (
+              {!standaloneForm && (
+                <Field label="Department" id="new-dept">
+                  <select
+                    id="new-dept"
+                    className="la-input"
+                    value={form.departmentId}
+                    onChange={(e) => setForm((f) => ({ ...f, departmentId: e.target.value, jobRoleId: '' }))}
+                    required
+                  >
+                    <option value="" disabled>Select department…</option>
+                    {activeDepartments.map((d) => (
+                      <option key={d.id} value={d.id}>{d.name}</option>
+                    ))}
+                  </select>
+                </Field>
+              )}
+              {!standaloneForm && formRoles.length > 0 && (
                 <Field label="Job role" id="new-role">
-                  <select id="new-role" className="la-input" value={form.jobRoleId} onChange={set('jobRoleId')}>
-                    <option value="">None</option>
+                  <select id="new-role" className="la-input" value={form.jobRoleId} onChange={set('jobRoleId')} required>
+                    <option value="" disabled>Select job role…</option>
                     {formRoles.map((r) => (
                       <option key={r.id} value={r.id}>{r.name}</option>
                     ))}
@@ -217,6 +478,9 @@ export default function EmployeesTab({ directory }) {
                 </Field>
               )}
             </div>
+            {!standaloneForm && form.departmentId && formRoles.length === 0 && (
+              <p className="la-meta">This department has no job roles yet{isDeveloper ? '. You can add some under Structure.' : ', so none is needed.'}</p>
+            )}
             <Field label="Email" id="new-email" hint="An invitation to set a password is sent to this address.">
               <input id="new-email" type="email" className="la-input" value={form.email} onChange={set('email')} placeholder="employee@example.com" required />
             </Field>
@@ -227,41 +491,77 @@ export default function EmployeesTab({ directory }) {
           </form>
         )}
 
+        {isDeveloper && (
+          <div className="la-toolbar">
+            <Field label="Show" id="emp-filter">
+              <select id="emp-filter" className="la-input compact" value={filter} onChange={(e) => setFilter(e.target.value)}>
+                <option value="all">All accounts ({employees.length})</option>
+                {counts.map((t) => (
+                  <option key={t.value} value={t.value}>{t.label}s ({t.n})</option>
+                ))}
+              </select>
+            </Field>
+          </div>
+        )}
+
         <DataTable
-          headers={['Employee #', 'Name', 'Email', 'Department', 'Job role', ...(settings.require_biometric ? ['Devices'] : []), 'Status', 'Actions']}
-          minWidth={1100}
+          headers={['Employee #', 'Name', 'Email', ...(isDeveloper ? ['Account type'] : []), 'Department', 'Job role', ...(settings.require_biometric ? ['Devices'] : []), 'Status', 'Actions']}
+          minWidth={isDeveloper ? 1200 : 1100}
         >
-          {employees.map((emp) => {
-            const isCeo = emp.role === 'ceo';
+          {visible.map((emp) => {
+            const standalone = emp.role !== 'employee';
+            const isSelf = emp.id === me.id;
             const busy = rowBusy === emp.id;
             const head = headOf(emp.id);
             const roles = rolesFor(emp.department_id, emp.job_role_id);
             const myDevices = deviceList(emp.id);
+            const canManage = isDeveloper || !(standalone || isSelf);
             return (
               <tr key={emp.id}>
                 <td className="la-td">{emp.employee_number}</td>
                 <td className="la-td">
-                  {emp.first_name} {emp.last_name} {head && <Pill tone="ok">Head</Pill>} {isCeo && <Pill>CEO</Pill>}
+                  {emp.first_name} {emp.last_name} {head && <Pill tone="ok">Head</Pill>}{' '}
+                  {emp.role === 'ceo' && <Pill>CEO</Pill>} {emp.role === 'developer' && <Pill tone="warn">Developer</Pill>}
                 </td>
                 <td className="la-td">{emp.email || '-'}</td>
-                <td className="la-td">
-                  <select
-                    className="la-input compact"
-                    aria-label={`Department for ${emp.first_name} ${emp.last_name}`}
-                    value={emp.department_id ?? ''}
-                    disabled={busy}
-                    onChange={(e) => handleDepartment(emp, e.target.value)}
-                  >
-                    <option value="">None</option>
-                    {departments
-                      .filter((d) => d.is_active || d.id === emp.department_id)
-                      .map((d) => (
-                        <option key={d.id} value={d.id}>{d.name}</option>
+                {isDeveloper && (
+                  <td className="la-td">
+                    <select
+                      className="la-input compact"
+                      aria-label={`Account type for ${emp.first_name} ${emp.last_name}`}
+                      value={emp.role}
+                      disabled={busy || isSelf}
+                      title={isSelf ? 'You cannot change your own account type.' : undefined}
+                      onChange={(e) => setTypeChange({ emp, role: e.target.value })}
+                    >
+                      {ACCOUNT_TYPES.map((t) => (
+                        <option key={t.value} value={t.value}>{t.label}</option>
                       ))}
-                  </select>
+                    </select>
+                  </td>
+                )}
+                <td className="la-td">
+                  {standalone ? (
+                    '-'
+                  ) : (
+                    <select
+                      className="la-input compact"
+                      aria-label={`Department for ${emp.first_name} ${emp.last_name}`}
+                      value={emp.department_id ?? ''}
+                      disabled={busy}
+                      onChange={(e) => handleDepartment(emp, e.target.value)}
+                    >
+                      {!emp.department_id && <option value="" disabled>Select…</option>}
+                      {departments
+                        .filter((d) => d.is_active || d.id === emp.department_id)
+                        .map((d) => (
+                          <option key={d.id} value={d.id}>{d.name}</option>
+                        ))}
+                    </select>
+                  )}
                 </td>
                 <td className="la-td">
-                  {roles.length === 0 ? (
+                  {standalone || roles.length === 0 ? (
                     '-'
                   ) : (
                     <select
@@ -271,7 +571,7 @@ export default function EmployeesTab({ directory }) {
                       disabled={busy}
                       onChange={(e) => handleJobRole(emp, e.target.value)}
                     >
-                      <option value="">None</option>
+                      {!emp.job_role_id && <option value="" disabled>Select…</option>}
                       {roles.map((r) => (
                         <option key={r.id} value={r.id}>{r.name}</option>
                       ))}
@@ -280,27 +580,40 @@ export default function EmployeesTab({ directory }) {
                 </td>
                 {settings.require_biometric && (
                   <td className="la-td">
-                    <PillButton variant="ghost" size="sm" icon={Fingerprint} onClick={() => setDevicesFor(emp)}>
-                      {myDevices.length === 0 ? 'None' : `${myDevices.length}`}
-                    </PillButton>
+                    {emp.role === 'developer' ? (
+                      '-'
+                    ) : (
+                      <PillButton variant="ghost" size="sm" icon={Fingerprint} onClick={() => setDevicesFor(emp)}>
+                        {myDevices.length === 0 ? 'None' : `${myDevices.length}`}
+                      </PillButton>
+                    )}
                   </td>
                 )}
                 <td className="la-td">
-                  {emp.is_active ? <Pill tone="ok">Active</Pill> : <Pill tone="warn">Inactive – delete pending</Pill>}
+                  {emp.is_active ? <Pill tone="ok">Active</Pill> : <Pill tone="warn">Inactive</Pill>}
                 </td>
                 <td className="la-td">
-                  {isCeo || emp.id === me.id ? (
+                  {!canManage ? (
                     <span className="la-protected">Protected</span>
                   ) : (
                     <div className="la-toolbar">
-                      {emp.is_active && (
+                      {isDeveloper && (
+                        <>
+                          <PillButton variant="secondary" size="sm" icon={Pencil} onClick={() => setEditing(emp)} disabled={busy}>
+                            Edit
+                          </PillButton>
+                        </>
+                      )}
+                      {emp.is_active && !isSelf && (
                         <PillButton variant="secondary" size="sm" icon={Mail} onClick={() => handleResend(emp)} disabled={busy}>
                           Resend invite
                         </PillButton>
                       )}
-                      <PillButton variant="danger" size="sm" icon={Trash2} onClick={() => setToDelete(emp)} disabled={busy}>
-                        {busy ? 'Working…' : 'Delete'}
-                      </PillButton>
+                      {!isSelf && (
+                        <PillButton variant="danger" size="sm" icon={Trash2} onClick={() => setToDelete(emp)} disabled={busy}>
+                          {busy ? 'Working…' : 'Delete'}
+                        </PillButton>
+                      )}
                     </div>
                   )}
                 </td>
@@ -320,6 +633,43 @@ export default function EmployeesTab({ directory }) {
         />
       )}
 
+      {moving && (
+        <ChooseRoleModal
+          employee={moving.emp}
+          department={departments.find((d) => d.id === moving.departmentId)}
+          roles={activeRolesFor(moving.departmentId)}
+          busy={rowBusy === moving.emp.id}
+          onCancel={() => setMoving(null)}
+          onConfirm={confirmMove}
+        />
+      )}
+
+      {editing && (
+        <EditEmployeeModal
+          employee={editing}
+          departments={departments}
+          jobRoles={jobRoles}
+          isSelf={editing.id === me.id}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            reloadEmployees();
+            reloadDepartments();
+          }}
+        />
+      )}
+
+      {typeChange && (
+        <ConfirmDialog
+          title={`Make ${typeChange.emp.first_name} ${typeChange.emp.last_name} ${typeChange.role === 'employee' ? 'an employee' : `a ${accountLabel(typeChange.role)}`}?`}
+          danger={typeChange.role === 'developer'}
+          confirmLabel="Change account type"
+          busy={rowBusy === typeChange.emp.id}
+          onCancel={() => setTypeChange(null)}
+          onConfirm={confirmTypeChange}
+          message={TYPE_WARNING[typeChange.role]}
+        />
+      )}
+
       {toDelete && (
         <ConfirmDialog
           title={`Delete ${toDelete.first_name} ${toDelete.last_name}?`}
@@ -329,6 +679,7 @@ export default function EmployeesTab({ directory }) {
           onCancel={() => setToDelete(null)}
           onConfirm={confirmDelete}
           message={
+            (toDelete.role !== 'employee' ? `This is a ${accountLabel(toDelete.role)} account.\n\n` : '') +
             'This will:\n' +
             '• Remove their login immediately\n' +
             '• Delete the employee record and their registered devices\n' +

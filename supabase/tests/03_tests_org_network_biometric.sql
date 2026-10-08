@@ -27,9 +27,12 @@ reset role;
 
 -- (bob was hard-deleted at the end of 02; recreate two more employees for these tests)
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000d1','dora@x.test'),('00000000-0000-0000-0000-0000000000e1','eve@x.test');
+-- (migration 3's "department required" insert rule is tested in part 3; seed rows here bypass it)
+alter table public.employees disable trigger employees_require_org_trg;
 insert into public.employees (id, auth_user_id, employee_number, first_name, last_name, email) values
  ('10000000-0000-0000-0000-0000000000d1','00000000-0000-0000-0000-0000000000d1','EMP004','Dora','D','dora@x.test'),
  ('10000000-0000-0000-0000-0000000000e1','00000000-0000-0000-0000-0000000000e1','EMP005','Eve','E','eve@x.test');
+alter table public.employees enable trigger employees_require_org_trg;
 
 -- ===== A. seed + structure =====
 do $$ begin
@@ -53,15 +56,16 @@ end $$;
 select pg_temp.as_user(:ceo);
 set role authenticated;
 
-do $$ declare prod uuid; des uuid; ad uuid; montage uuid; begin
+do $$ declare prod uuid; des uuid; ad uuid; montage uuid; opr uuid; begin
   select id into prod from public.departments where name='Production';
   select id into des  from public.departments where name='Design';
   select id into ad   from public.departments where name='Advertising';
   select id into montage from public.job_roles where name='Montage';
+  select id into opr from public.job_roles where name='Operator';
 
   -- assign Alice + Dora to Production, Eve to Design
-  perform public.ceo_set_employee_department('10000000-0000-0000-0000-0000000000a1', prod);
-  perform public.ceo_set_employee_department('10000000-0000-0000-0000-0000000000d1', prod);
+  perform public.ceo_set_employee_department('10000000-0000-0000-0000-0000000000a1', prod, opr);
+  perform public.ceo_set_employee_department('10000000-0000-0000-0000-0000000000d1', prod, montage);
   perform public.ceo_set_employee_department('10000000-0000-0000-0000-0000000000e1', des);
 
   -- head must belong to the department
@@ -71,7 +75,7 @@ do $$ declare prod uuid; des uuid; ad uuid; montage uuid; begin
   -- one head per person
   perform public.ceo_set_employee_department('10000000-0000-0000-0000-0000000000a1', des); -- moving Alice clears headship
   if (select head_employee_id from public.departments where id=prod) is not null then raise exception 'headship not cleared on move'; end if;
-  perform public.ceo_set_employee_department('10000000-0000-0000-0000-0000000000a1', prod);
+  perform public.ceo_set_employee_department('10000000-0000-0000-0000-0000000000a1', prod, opr);
   perform public.ceo_set_department_head(prod, '10000000-0000-0000-0000-0000000000a1');
 
   -- job roles
@@ -80,9 +84,12 @@ do $$ declare prod uuid; des uuid; ad uuid; montage uuid; begin
   exception when sqlstate '22023' then null; end;
   perform public.ceo_set_employee_department('10000000-0000-0000-0000-0000000000d1', ad);   -- moving drops the role
   if (select job_role_id from public.employees where employee_number='EMP004') is not null then raise exception 'job role survived department change'; end if;
-  perform public.ceo_set_employee_department('10000000-0000-0000-0000-0000000000d1', prod);
-  perform public.ceo_set_employee_job_role('10000000-0000-0000-0000-0000000000d1', montage);
-  perform public.ceo_set_employee_job_role('10000000-0000-0000-0000-0000000000d1', null);
+  begin perform public.ceo_set_employee_department('10000000-0000-0000-0000-0000000000d1', prod); raise exception 'moved into a department with roles without choosing one';
+  exception when sqlstate '22023' then null; end;
+  perform public.ceo_set_employee_department('10000000-0000-0000-0000-0000000000d1', prod, montage);
+  begin perform public.ceo_set_employee_job_role('10000000-0000-0000-0000-0000000000d1', null); raise exception 'role cleared in a department that has roles';
+  exception when sqlstate '22023' then null; end;
+  perform public.ceo_set_employee_job_role('10000000-0000-0000-0000-0000000000d1', opr);
   perform public.ceo_set_employee_job_role('10000000-0000-0000-0000-0000000000d1', montage);
   if (select count(*) from public.audit_logs where action in ('department.head','employee.job_role')) < 4 then raise exception 'audit for org changes'; end if;
 end $$;

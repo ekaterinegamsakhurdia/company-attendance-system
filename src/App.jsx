@@ -5,6 +5,7 @@ import Login from './views/Login';
 import SetPassword from './views/SetPassword';
 import EmployeeDashboard from './views/EmployeeDashboard';
 import CeoDashboard from './views/CeoDashboard';
+import DeveloperDashboard from './views/DeveloperDashboard';
 
 function Gate() {
   const { session, employee, loading, profileError, signOut } = useAuth();
@@ -35,6 +36,7 @@ function Gate() {
     );
   }
 
+  if (employee.role === 'developer') return <DeveloperDashboard />;
   return employee.role === 'ceo' ? <CeoDashboard /> : <EmployeeDashboard />;
 }
 

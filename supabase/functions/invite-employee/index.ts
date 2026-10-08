@@ -1,7 +1,10 @@
 // Creates an employee and sends the invitation e-mail, or re-sends it.
 //
 // Body (create + invite):
-//   { employeeNumber, firstName, lastName, email, departmentId? }
+//   { employeeNumber, firstName, lastName, email, departmentId, jobRoleId?, role? }
+//   - role defaults to "employee". An employee MUST have a department, and a job role
+//     whenever that department has job roles (the database enforces this too).
+//   - role "ceo" or "developer" can only be created by a developer and needs no department.
 // Body (resend for an existing employee):
 //   { employeeId }
 //
@@ -28,10 +31,13 @@ type EmployeeRow = {
   email: string | null;
   auth_user_id: string | null;
   is_active: boolean;
+  role?: string;
 };
 
 const COLUMNS =
-  "id, employee_number, first_name, last_name, email, auth_user_id, is_active";
+  "id, employee_number, first_name, last_name, email, auth_user_id, is_active, role";
+
+const ROLES = ["employee", "ceo", "developer"];
 
 function redirectUrl(): string {
   const siteUrl = Deno.env.get("SITE_URL")?.trim().replace(/\/+$/, "");
@@ -70,8 +76,21 @@ async function createAndInvite(ctx: CeoContext, body: Record<string, unknown>) {
   const firstName = requireText(body.firstName, "First name");
   const lastName = requireText(body.lastName, "Last name");
   const email = requireEmail(body.email);
-  const departmentId = optionalUuid(body.departmentId, "departmentId");
-  const jobRoleId = optionalUuid(body.jobRoleId, "jobRoleId");
+  const role = body.role === undefined || body.role === null || body.role === ""
+    ? "employee"
+    : String(body.role);
+  if (!ROLES.includes(role)) throw new HttpError(400, "Unknown account type.");
+  if (role !== "employee" && !ctx.isDeveloper) {
+    throw new HttpError(403, "Only a developer can create CEO or developer accounts.");
+  }
+
+  // Employees need a department (and a job role if it has any). CEO / developer accounts
+  // belong to no department.
+  const departmentId = role === "employee" ? optionalUuid(body.departmentId, "departmentId") : null;
+  const jobRoleId = role === "employee" ? optionalUuid(body.jobRoleId, "jobRoleId") : null;
+  if (role === "employee" && !departmentId) {
+    throw new HttpError(400, "Choose a department for the new employee.");
+  }
   if (jobRoleId && !departmentId) {
     throw new HttpError(400, "Choose a department before choosing a job role.");
   }
@@ -86,7 +105,7 @@ async function createAndInvite(ctx: CeoContext, body: Record<string, unknown>) {
       email,
       department_id: departmentId,
       job_role_id: jobRoleId,
-      role: "employee",
+      role,
       is_active: true,
     })
     .select(COLUMNS)
@@ -104,6 +123,10 @@ async function createAndInvite(ctx: CeoContext, body: Record<string, unknown>) {
     }
     if (insertError.code === "23503") {
       throw new HttpError(400, "That job role does not belong to the selected department.");
+    }
+    if (insertError.code === "22023" || insertError.code === "P0002") {
+      // Raised by the database's department / job role rules, with a readable message.
+      throw new HttpError(400, insertError.message);
     }
     console.error("Employee insert error:", insertError);
     throw new HttpError(500, "Could not create the employee record.");
@@ -138,6 +161,7 @@ async function createAndInvite(ctx: CeoContext, body: Record<string, unknown>) {
 
   await audit(ctx, "employee.invite", emp.id, `Invited ${firstName} ${lastName}`, {
     employee_number: employeeNumber,
+    role,
     email,
     department_id: departmentId,
     job_role_id: jobRoleId,
@@ -164,6 +188,8 @@ async function resendInvite(ctx: CeoContext, employeeId: string) {
   if (!data) throw new HttpError(404, "Employee not found.");
 
   const emp = data as EmployeeRow;
+  // CEOs cannot see or touch developer accounts.
+  if (emp.role === "developer" && !ctx.isDeveloper) throw new HttpError(404, "Employee not found.");
   if (!emp.is_active) throw new HttpError(400, "This employee is inactive.");
   if (!emp.email) {
     throw new HttpError(400, "This employee does not have an email address.");

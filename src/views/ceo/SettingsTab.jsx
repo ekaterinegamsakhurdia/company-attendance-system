@@ -3,12 +3,15 @@ import { Briefcase, Building2, Plus, Settings, ShieldCheck, Trash2, Wifi } from 
 import { useAuth } from '../../hooks/useAuth';
 import { useLoad } from '../../hooks/useLoad';
 import { useToast } from '../../components/Toast';
+import { ConfirmDialog } from '../../components/Modal';
 import { Alert, DataTable, Field, Message, Pill, PillButton, SectionCard } from '../../components/ui';
 import {
   addMyNetwork,
   addNetwork,
   createDepartment,
   createJobRole,
+  deleteDepartment,
+  deleteJobRole,
   deleteNetwork,
   fetchCompanySettings,
   fetchNetworkStatus,
@@ -246,12 +249,15 @@ function SecurityCard() {
 }
 
 /* ------------------------------------------------------------------ */
-function Departments({ directory }) {
+export function Departments({ directory }) {
   const toast = useToast();
-  const { departments, employees, reloadDepartments } = directory;
+  const { employee: me } = useAuth();
+  const isDeveloper = me.role === 'developer';
+  const { departments, employees, reloadDepartments, reloadEmployees, reloadJobRoles } = directory;
   const [name, setName] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState('');
+  const [toDelete, setToDelete] = useState(null);
   const [busy, setBusy] = useState(false);
 
   async function run(action, message) {
@@ -269,7 +275,18 @@ function Departments({ directory }) {
     }
   }
 
+  async function confirmDelete() {
+    const d = toDelete;
+    const ok = await run(() => deleteDepartment(d.id), `${d.name} was deleted.`);
+    setToDelete(null);
+    if (ok) {
+      reloadJobRoles?.();
+      reloadEmployees?.();
+    }
+  }
+
   const members = (id) => employees.filter((e) => e.department_id === id && e.is_active);
+  const allMembers = (id) => employees.filter((e) => e.department_id === id);
 
   return (
     <>
@@ -340,6 +357,11 @@ function Departments({ directory }) {
                       <PillButton variant="ghost" size="sm" disabled={busy} onClick={() => run(() => updateDepartment(d.id, { is_active: !d.is_active }), d.is_active ? 'Department deactivated.' : 'Department activated.')}>
                         {d.is_active ? 'Deactivate' : 'Activate'}
                       </PillButton>
+                      {isDeveloper && (
+                        <PillButton variant="danger" size="sm" icon={Trash2} disabled={busy} aria-label={`Delete ${d.name}`} onClick={() => setToDelete(d)}>
+                          Delete
+                        </PillButton>
+                      )}
                     </>
                   )}
                 </div>
@@ -348,16 +370,38 @@ function Departments({ directory }) {
           ))}
         </DataTable>
       )}
+
+      {toDelete && (
+        <ConfirmDialog
+          title={`Delete ${toDelete.name}?`}
+          danger
+          confirmLabel="Delete department"
+          confirmDisabled={allMembers(toDelete.id).length > 0}
+          busy={busy}
+          onCancel={() => setToDelete(null)}
+          onConfirm={confirmDelete}
+          message={
+            allMembers(toDelete.id).length > 0
+              ? `${allMembers(toDelete.id).length} employee(s) still belong to this department, so it cannot be deleted. Move them to another department first, or deactivate the department instead.`
+              : 'This permanently removes the department and its job roles. This cannot be undone.'
+          }
+        />
+      )}
     </>
   );
 }
 
 /* ------------------------------------------------------------------ */
-function JobRoles({ directory }) {
+export function JobRoles({ directory }) {
   const toast = useToast();
-  const { departments, jobRoles, employees, reloadJobRoles } = directory;
+  const { employee: me } = useAuth();
+  const isDeveloper = me.role === 'developer';
+  const { departments, jobRoles, employees, reloadJobRoles, reloadEmployees } = directory;
   const [deptId, setDeptId] = useState('');
   const [name, setName] = useState('');
+  const [editingId, setEditingId] = useState(null);
+  const [editName, setEditName] = useState('');
+  const [toDelete, setToDelete] = useState(null);
   const [busy, setBusy] = useState(false);
 
   async function run(action, message) {
@@ -375,14 +419,22 @@ function JobRoles({ directory }) {
     }
   }
 
+  async function confirmDelete() {
+    const r = toDelete;
+    const ok = await run(() => deleteJobRole(r.id), `${r.name} was deleted.`);
+    setToDelete(null);
+    if (ok) reloadEmployees?.();
+  }
+
   const deptName = (id) => departments.find((d) => d.id === id)?.name ?? '-';
-  const count = (id) => employees.filter((e) => e.job_role_id === id && e.is_active).length;
+  const holders = (id) => employees.filter((e) => e.job_role_id === id);
+  const count = (id) => holders(id).filter((e) => e.is_active).length;
 
   return (
     <>
       <p className="la-meta">
-        Job roles split a department into positions, e.g. Production → Montage, Operator, Motion Designer. An employee can
-        hold one role in their own department.
+        Job roles split a department into positions, e.g. Production → Montage, Operator, Motion Designer. Once a
+        department has job roles, every employee in it must have one.
       </p>
       <form
         className="la-toolbar"
@@ -410,30 +462,73 @@ function JobRoles({ directory }) {
       {jobRoles.length === 0 ? (
         <Message>No job roles yet.</Message>
       ) : (
-        <DataTable headers={['Department', 'Job role', 'Employees', 'Status', '']}>
+        <DataTable headers={['Department', 'Job role', 'Employees', 'Status', '']} minWidth={700}>
           {[...jobRoles]
             .sort((a, b) => deptName(a.department_id).localeCompare(deptName(b.department_id)) || a.name.localeCompare(b.name))
             .map((r) => (
               <tr key={r.id}>
                 <td className="la-td">{deptName(r.department_id)}</td>
-                <td className="la-td">{r.name}</td>
+                <td className="la-td">
+                  {editingId === r.id ? (
+                    <input className="la-input compact" value={editName} onChange={(e) => setEditName(e.target.value)} aria-label="Job role name" maxLength={80} />
+                  ) : (
+                    r.name
+                  )}
+                </td>
                 <td className="la-td">{count(r.id)}</td>
                 <td className="la-td">{r.is_active ? <Pill tone="ok">Active</Pill> : <Pill tone="off">Inactive</Pill>}</td>
                 <td className="la-td">
-                  <PillButton variant="ghost" size="sm" disabled={busy} onClick={() => run(() => updateJobRole(r.id, { is_active: !r.is_active }), r.is_active ? 'Job role deactivated.' : 'Job role activated.')}>
-                    {r.is_active ? 'Deactivate' : 'Activate'}
-                  </PillButton>
+                  <div className="la-toolbar">
+                    {editingId === r.id ? (
+                      <>
+                        <PillButton size="sm" disabled={busy || !editName.trim()} onClick={() => run(() => updateJobRole(r.id, { name: editName.trim() }), 'Job role renamed.').then((ok) => ok && setEditingId(null))}>
+                          Save
+                        </PillButton>
+                        <PillButton variant="ghost" size="sm" onClick={() => setEditingId(null)}>Cancel</PillButton>
+                      </>
+                    ) : (
+                      <>
+                        <PillButton variant="ghost" size="sm" onClick={() => { setEditingId(r.id); setEditName(r.name); }}>Rename</PillButton>
+                        <PillButton variant="ghost" size="sm" disabled={busy} onClick={() => run(() => updateJobRole(r.id, { is_active: !r.is_active }), r.is_active ? 'Job role deactivated.' : 'Job role activated.')}>
+                          {r.is_active ? 'Deactivate' : 'Activate'}
+                        </PillButton>
+                        {isDeveloper && (
+                          <PillButton variant="danger" size="sm" icon={Trash2} disabled={busy} aria-label={`Delete ${r.name} (${deptName(r.department_id)})`} onClick={() => setToDelete(r)}>
+                            Delete
+                          </PillButton>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
         </DataTable>
+      )}
+
+      {toDelete && (
+        <ConfirmDialog
+          title={`Delete job role ${toDelete.name}?`}
+          danger
+          confirmLabel="Delete job role"
+          confirmDisabled={holders(toDelete.id).length > 0}
+          busy={busy}
+          onCancel={() => setToDelete(null)}
+          onConfirm={confirmDelete}
+          message={
+            holders(toDelete.id).length > 0
+              ? `${holders(toDelete.id).length} employee(s) still hold this job role, so it cannot be deleted. Change their role first, or deactivate it instead.`
+              : 'This permanently removes the job role. This cannot be undone.'
+          }
+        />
       )}
     </>
   );
 }
 
 /* ------------------------------------------------------------------ */
-export default function SettingsTab({ directory }) {
+/** `showOrganisation` is false on the developer dashboard, which has a Structure tab for that. */
+export default function SettingsTab({ directory, showOrganisation = true }) {
   const settings = useLoad(fetchCompanySettings);
 
   return (
@@ -449,13 +544,17 @@ export default function SettingsTab({ directory }) {
 
       <SecurityCard />
 
-      <SectionCard icon={Building2} eyebrow="Organisation" title="Departments">
-        <Departments directory={directory} />
-      </SectionCard>
+      {showOrganisation && (
+        <>
+          <SectionCard icon={Building2} eyebrow="Organisation" title="Departments">
+            <Departments directory={directory} />
+          </SectionCard>
 
-      <SectionCard icon={Briefcase} eyebrow="Organisation" title="Job Roles">
-        <JobRoles directory={directory} />
-      </SectionCard>
+          <SectionCard icon={Briefcase} eyebrow="Organisation" title="Job Roles">
+            <JobRoles directory={directory} />
+          </SectionCard>
+        </>
+      )}
     </>
   );
 }

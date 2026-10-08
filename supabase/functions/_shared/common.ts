@@ -153,7 +153,11 @@ export type EmployeeContext = AuthContext & {
   };
 };
 
-export type CeoContext = AuthContext & { ceoEmployeeId: string };
+// "Admin" = CEO or developer. Developers can do everything a CEO can, plus manage accounts.
+export type CeoContext = AuthContext & {
+  ceoEmployeeId: string;
+  isDeveloper: boolean;
+};
 
 export function clientIp(req: Request): string | null {
   const raw =
@@ -208,10 +212,25 @@ export async function requireEmployee(req: Request): Promise<EmployeeContext> {
 
 export async function requireCeo(req: Request): Promise<CeoContext> {
   const ctx = await requireEmployee(req);
-  if (ctx.employee.role !== "ceo") {
+  const role = ctx.employee.role;
+  if (role !== "ceo" && role !== "developer") {
     throw new HttpError(403, "Only the CEO can do this.");
   }
-  return { admin: ctx.admin, user: ctx.user, ip: ctx.ip, ceoEmployeeId: ctx.employee.id };
+  return {
+    admin: ctx.admin,
+    user: ctx.user,
+    ip: ctx.ip,
+    ceoEmployeeId: ctx.employee.id,
+    isDeveloper: role === "developer",
+  };
+}
+
+export async function requireDeveloper(req: Request): Promise<CeoContext> {
+  const ctx = await requireCeo(req);
+  if (!ctx.isDeveloper) {
+    throw new HttpError(403, "Only a developer can do this.");
+  }
+  return ctx;
 }
 
 export async function audit(

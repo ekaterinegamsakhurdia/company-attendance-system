@@ -145,7 +145,7 @@ export function Shell({ children, wide, onLogout }) {
   return (
     <div className="la-page">
       <header className="la-nav">
-        <div className="la-nav-inner">
+        <div className={`la-nav-inner${wide ? ' wide' : ''}`}>
           <div className="la-brand">
             <IconTile icon={Layers} />
             <span>Looper Agency</span>

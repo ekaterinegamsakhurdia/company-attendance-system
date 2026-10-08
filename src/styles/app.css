@@ -48,7 +48,8 @@
 
 /* Layout */
 .la-main { max-width: 700px; margin: 0 auto; padding: 32px 24px 56px; display: flex; flex-direction: column; gap: 24px; }
-.la-main.wide { max-width: 1100px; }
+.la-main.wide { max-width: 1320px; }
+.la-nav-inner.wide { max-width: 1368px; }
 
 /* Hero */
 .la-hero { padding: 16px 0 8px; display: flex; flex-direction: column; gap: 14px; }

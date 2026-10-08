@@ -35,10 +35,14 @@ serve(async (req) => {
   }
   if (!target) throw new HttpError(404, "Employee not found.");
   if (target.id === ctx.ceoEmployeeId) {
-    throw new HttpError(400, "You cannot delete your own CEO account.");
+    throw new HttpError(400, "You cannot delete your own account.");
   }
-  if (target.role === "ceo") {
-    throw new HttpError(400, "CEO accounts cannot be deleted here.");
+  // Developer accounts do not exist as far as a CEO is concerned.
+  if (target.role === "developer" && !ctx.isDeveloper) {
+    throw new HttpError(404, "Employee not found.");
+  }
+  if (target.role === "ceo" && !ctx.isDeveloper) {
+    throw new HttpError(403, "Only a developer can delete a CEO account.");
   }
 
   const name = `${target.first_name} ${target.last_name}`;
@@ -87,6 +91,7 @@ serve(async (req) => {
   await audit(ctx, "employee.delete", null, `Deleted ${name}`, {
     employee_id: target.id,
     employee_number: target.employee_number,
+    role: target.role,
     name,
     email: target.email,
     had_login: Boolean(target.auth_user_id),
