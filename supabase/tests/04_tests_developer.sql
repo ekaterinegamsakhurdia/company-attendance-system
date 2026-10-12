@@ -81,8 +81,9 @@ end $$;
 select pg_temp.as_user(:ceo);
 set role authenticated;
 do $$ begin
-  if exists (select 1 from public.employees where role='developer') then raise exception 'CEO can see a developer account'; end if;
-  if (select count(*) from public.employees) < 5 then raise exception 'CEO lost sight of normal accounts'; end if;
+  -- CEOs can SEE the developer (read-only, see test 05 for what they cannot change)
+  if (select count(*) from public.employees where role='developer') <> 1 then raise exception 'CEO cannot see the developer account'; end if;
+  if (select count(*) from public.employees) < 6 then raise exception 'CEO lost sight of accounts'; end if;
   if not public.is_ceo() then raise exception 'ceo is_ceo'; end if;
   if public.is_developer() then raise exception 'ceo is_developer'; end if;
 end $$;

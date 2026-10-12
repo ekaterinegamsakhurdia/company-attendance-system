@@ -19,7 +19,8 @@ function shiftDays(ymd, days) {
 
 /** CEO: full report with corrections. readOnly (department heads): same data, no editing. */
 export default function ReportsTab({ directory, readOnly = false }) {
-  const { timezone, settings } = useAuth();
+  const { timezone, settings, employee: me } = useAuth();
+  const isDeveloper = me.role === 'developer';
   const today = todayInTz(timezone);
 
   const [from, setFrom] = useState(monthStartInTz(timezone));
@@ -64,10 +65,13 @@ export default function ReportsTab({ directory, readOnly = false }) {
   const yesNo = (v) => (v ? 'yes' : 'no');
   // Department name, or "CEO" / "Developer" for people who have none.
   const groupOf = (r) => {
-    const dept = deptName(emp(r)?.department_id);
+    const e = emp(r);
+    const dept = deptName(e?.department_id);
     if (dept) return dept;
-    return r.employee_role && r.employee_role !== 'employee' ? ACCOUNT_LABEL[r.employee_role] ?? '' : '';
+    return e && e.role !== 'employee' ? ACCOUNT_LABEL[e.role] ?? '' : '';
   };
+  // A CEO can read a developer's records but only a developer can change them.
+  const canEdit = (r) => isDeveloper || emp(r)?.role !== 'developer';
 
   function exportCsv() {
     const csv = toCsv(rows, [
@@ -83,7 +87,7 @@ export default function ReportsTab({ directory, readOnly = false }) {
       { label: 'Clock-out type', get: (r) => r.clockout_type },
       { label: 'Biometric at clock-in', get: (r) => yesNo(r.clock_in_biometric) },
       { label: 'Biometric at clock-out', get: (r) => (r.clock_out ? yesNo(r.clock_out_biometric) : '') },
-      { label: 'Account type', get: (r) => ACCOUNT_LABEL[r.employee_role] ?? '' },
+      { label: 'Account type', get: (r) => ACCOUNT_LABEL[emp(r)?.role] ?? '' },
     ]);
     downloadCsv(`attendance_${from}_to_${to}.csv`, csv);
   }
@@ -207,9 +211,13 @@ export default function ReportsTab({ directory, readOnly = false }) {
                     <td className="la-td">{r.clockout_type ? (r.clockout_type === 'automatic' ? <Pill tone="warn">Auto</Pill> : 'Manual') : '-'}</td>
                     {!readOnly && (
                       <td className="la-td">
-                        <PillButton variant="ghost" size="sm" icon={Pencil} onClick={() => setEditor({ record: r })}>
-                          Edit
-                        </PillButton>
+                        {canEdit(r) ? (
+                          <PillButton variant="ghost" size="sm" icon={Pencil} onClick={() => setEditor({ record: r })}>
+                            Edit
+                          </PillButton>
+                        ) : (
+                          <span className="la-protected">Protected</span>
+                        )}
                       </td>
                     )}
                   </tr>
@@ -223,7 +231,7 @@ export default function ReportsTab({ directory, readOnly = false }) {
       {!readOnly && editor && (
         <AttendanceEditor
           record={editor.record}
-          employees={directory.employees}
+          employees={isDeveloper ? directory.employees : directory.employees.filter((e) => e.role !== 'developer')}
           timezone={timezone}
           workStart={settings.work_start_time}
           onClose={() => setEditor(null)}

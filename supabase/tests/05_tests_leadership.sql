@@ -37,7 +37,6 @@ set role authenticated;
 do $$ declare r public.attendance; begin
   r := public.clock_in();
   if r.employee_id <> '10000000-0000-0000-0000-0000000000c2' then raise exception 'ceo clock-in row'; end if;
-  if r.employee_role is distinct from 'ceo' then raise exception 'ceo role snapshot: %', r.employee_role; end if;
   r := public.clock_out();
   if r.clock_out is null or r.worked_minutes is null then raise exception 'ceo clock-out'; end if;
 end $$;
@@ -48,35 +47,44 @@ set role authenticated;
 do $$ declare r public.attendance; begin
   r := public.clock_in();
   if r.employee_id <> '10000000-0000-0000-0000-0000000000f1' then raise exception 'developer clock-in row'; end if;
-  if r.employee_role is distinct from 'developer' then raise exception 'developer role snapshot: %', r.employee_role; end if;
 end $$;
 select pg_temp.expect_error($$select public.clock_in()$$, 'already clocked in');
 reset role;
 
 -- ===== B. who can see those records =====
-select pg_temp.as_user(:ceo);                       -- the other CEO
+select pg_temp.as_user(:ceo);                       -- another CEO sees everyone, the developer included
 set role authenticated;
 do $$ begin
   if not exists (select 1 from public.attendance where employee_id = '10000000-0000-0000-0000-0000000000c2') then
     raise exception 'CEO cannot see another CEO''s attendance'; end if;
-  if exists (select 1 from public.attendance where employee_id = '10000000-0000-0000-0000-0000000000f1' or employee_role = 'developer') then
-    raise exception 'CEO can see developer attendance'; end if;
+  if not exists (select 1 from public.attendance where employee_id = '10000000-0000-0000-0000-0000000000f1') then
+    raise exception 'CEO cannot see the developer''s attendance'; end if;
+end $$;
+reset role;
+
+do $$ begin
+  -- the CEO's view is the whole table
+  perform set_config('test.total', (select count(*)::text from public.attendance), false);
+end $$;
+select pg_temp.as_user(:ceo);
+set role authenticated;
+do $$ begin
+  if (select count(*) from public.attendance)::text <> current_setting('test.total') then raise exception 'CEO does not see all attendance rows'; end if;
 end $$;
 reset role;
 
 select pg_temp.as_user(:dev);
 set role authenticated;
 do $$ begin
-  if not exists (select 1 from public.attendance where employee_id = '10000000-0000-0000-0000-0000000000f1') then raise exception 'developer cannot see own attendance'; end if;
-  if not exists (select 1 from public.attendance where employee_id = '10000000-0000-0000-0000-0000000000c2') then raise exception 'developer cannot see the CEO''s attendance'; end if;
-  if not exists (select 1 from public.attendance where employee_role is null or employee_role = 'employee') then raise exception 'developer lost employee attendance'; end if;
+  if (select count(*) from public.attendance)::text <> current_setting('test.total') then raise exception 'developer does not see all attendance rows'; end if;
 end $$;
 reset role;
 
-select pg_temp.as_user(:alice);                     -- a department head sees neither
+select pg_temp.as_user(:alice);                     -- a department head sees neither CEO nor developer
 set role authenticated;
 do $$ begin
-  if exists (select 1 from public.attendance where employee_role in ('ceo','developer')) then raise exception 'head can see CEO/developer attendance'; end if;
+  if exists (select 1 from public.attendance a join public.employees e on e.id = a.employee_id where e.role in ('ceo','developer')) then raise exception 'head can see CEO/developer attendance'; end if;
+  if exists (select 1 from public.employees where role = 'developer') then raise exception 'head can see the developer account'; end if;
 end $$;
 reset role;
 
@@ -87,22 +95,17 @@ do $$ begin
 end $$;
 reset role;
 
--- ===== C. corrections =====
+-- ===== C. corrections: CEOs may correct CEOs, but a developer's records are read-only for them =====
 select pg_temp.as_user(:ceo);
 set role authenticated;
-do $$ declare dev_row uuid; ceo2_row uuid; begin
+do $$ declare ceo2_row uuid; begin
   select id into ceo2_row from public.attendance where employee_id = '10000000-0000-0000-0000-0000000000c2';
-  -- a CEO may correct another CEO's record (audited, needs a reason)
   perform public.ceo_save_attendance(ceo2_row, null, now() - interval '9 hours', now() - interval '1 hour', 'Fixed by the other CEO');
   if (select count(*) from public.audit_logs where action = 'attendance.update' and description like '%Fixed by the other CEO%') <> 1 then raise exception 'ceo correction audit'; end if;
 end $$;
--- ... but never a developer's
-reset role;
-select pg_temp.as_user(:ceo);
-set role authenticated;
 select pg_temp.expect_error(
-  format($q$select public.ceo_save_attendance(null, '10000000-0000-0000-0000-0000000000f1', now() - interval '3 days', now() - interval '3 days' + interval '8 hours', 'Add record for developer')$q$),
-  'not found');
+  $$select public.ceo_save_attendance(null, '10000000-0000-0000-0000-0000000000f1', now() - interval '3 days', now() - interval '3 days' + interval '8 hours', 'Add record for developer')$$,
+  'Only a developer can change');
 reset role;
 do $$ begin
   perform set_config('test.dev_row', (select id::text from public.attendance where employee_id = '10000000-0000-0000-0000-0000000000f1'), false);
@@ -111,10 +114,10 @@ select pg_temp.as_user(:ceo);
 set role authenticated;
 select pg_temp.expect_error(
   format($q$select public.ceo_save_attendance(%L, null, now() - interval '8 hours', null, 'Change developer record')$q$, current_setting('test.dev_row')),
-  'not found');
+  'Only a developer can change');
 select pg_temp.expect_error(
   format($q$select public.ceo_delete_attendance(%L, 'Delete developer record')$q$, current_setting('test.dev_row')),
-  'not found');
+  'Only a developer can change');
 reset role;
 do $$ begin
   if not exists (select 1 from public.attendance where id = current_setting('test.dev_row')::uuid) then raise exception 'developer record was deleted by a CEO'; end if;
@@ -143,70 +146,21 @@ do $$ declare n int; begin
     raise exception 'developer shift was not closed automatically'; end if;
 end $$;
 
--- ===== E. deleted developer: history stays, still hidden from CEOs =====
-insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000bb', 'dev2@x.test');
-insert into public.employees (id, auth_user_id, employee_number, first_name, last_name, email, role)
-values ('10000000-0000-0000-0000-0000000000bb', '00000000-0000-0000-0000-0000000000bb', 'DEV002', 'Dev', 'Two', 'dev2@x.test', 'developer');
-insert into public.attendance (employee_id, work_date, clock_in, clock_out, clockout_type, worked_minutes)
-values ('10000000-0000-0000-0000-0000000000bb', current_date - 20, now() - interval '20 days', now() - interval '20 days' + interval '8 hours', 'manual', 480);
-delete from public.employees where id = '10000000-0000-0000-0000-0000000000bb';
-do $$ begin
-  if not exists (select 1 from public.attendance where employee_id is null and employee_number = 'DEV002' and employee_role = 'developer') then
-    raise exception 'deleted developer history lost its snapshot'; end if;
-end $$;
-select pg_temp.as_user(:ceo);
-set role authenticated;
-do $$ begin
-  if exists (select 1 from public.attendance where employee_number = 'DEV002') then raise exception 'CEO sees a deleted developer''s history'; end if;
-end $$;
-reset role;
-select pg_temp.as_user(:dev);
-set role authenticated;
-do $$ begin
-  if not exists (select 1 from public.attendance where employee_number = 'DEV002') then raise exception 'developer lost a deleted developer''s history'; end if;
-end $$;
-reset role;
-
--- ===== F. changing the account type keeps the snapshot in step =====
-insert into public.attendance (employee_id, work_date, clock_in, clock_out, clockout_type, worked_minutes)
-values ('10000000-0000-0000-0000-0000000000f2', current_date - 30, now() - interval '30 days', now() - interval '30 days' + interval '8 hours', 'manual', 480);
-do $$ begin
-  if (select employee_role from public.attendance where employee_id = '10000000-0000-0000-0000-0000000000f2' and work_date = current_date - 30) <> 'employee' then raise exception 'employee snapshot'; end if;
-end $$;
-update public.employees set role = 'developer', department_id = null, job_role_id = null where id = '10000000-0000-0000-0000-0000000000f2';
-do $$ begin
-  if (select employee_role from public.attendance where employee_id = '10000000-0000-0000-0000-0000000000f2' and work_date = current_date - 30) <> 'developer' then raise exception 'role change not synced'; end if;
-end $$;
-select pg_temp.as_user(:ceo);
-set role authenticated;
-do $$ begin
-  if exists (select 1 from public.attendance where employee_id = '10000000-0000-0000-0000-0000000000f2') then raise exception 'CEO sees records of an account that became a developer'; end if;
-end $$;
-reset role;
-update public.employees set role = 'employee', department_id = (select id from public.departments where name = 'Design') where id = '10000000-0000-0000-0000-0000000000f2';
-
--- ===== G. a developer's registered devices are hidden from CEOs =====
+-- ===== E. devices: a CEO can see them but cannot remove a developer's =====
 insert into public.webauthn_credentials (id, employee_id, credential_id, public_key, device_name)
 values ('20000000-0000-0000-0000-0000000000f1', '10000000-0000-0000-0000-0000000000f1', 'cred-dev', 'pk', 'Dev phone'),
        ('20000000-0000-0000-0000-0000000000c2', '10000000-0000-0000-0000-0000000000c2', 'cred-ceo2', 'pk', 'CEO2 phone');
 select pg_temp.as_user(:ceo);
 set role authenticated;
-do $$ begin
-  if exists (select 1 from public.webauthn_credentials where employee_id = '10000000-0000-0000-0000-0000000000f1') then raise exception 'CEO sees a developer device'; end if;
-  if not exists (select 1 from public.webauthn_credentials where employee_id = '10000000-0000-0000-0000-0000000000c2') then raise exception 'CEO cannot see a CEO device'; end if;
-end $$;
-select pg_temp.expect_error($$select public.remove_webauthn_credential('20000000-0000-0000-0000-0000000000f1')$$, 'not found');
+select pg_temp.expect_error($$select public.remove_webauthn_credential('20000000-0000-0000-0000-0000000000f1')$$, 'Only a developer can remove');
+do $$ begin perform public.remove_webauthn_credential('20000000-0000-0000-0000-0000000000c2'); end $$;   -- another CEO's is fine
 reset role;
 select pg_temp.as_user(:dev);
 set role authenticated;
-do $$ begin
-  if (select count(*) from public.webauthn_credentials) < 2 then raise exception 'developer cannot see devices'; end if;
-  perform public.remove_webauthn_credential('20000000-0000-0000-0000-0000000000f1');
-  perform public.remove_webauthn_credential('20000000-0000-0000-0000-0000000000c2');
-end $$;
+do $$ begin perform public.remove_webauthn_credential('20000000-0000-0000-0000-0000000000f1'); end $$;
 reset role;
 
--- ===== H. company networks: no limit =====
+-- ===== F. company networks: no limit =====
 select pg_temp.as_user(:ceo);
 set role authenticated;
 do $$ begin

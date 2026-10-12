@@ -6,7 +6,7 @@ import { friendlyNetworkError } from '../lib/networks';
 const EMPLOYEE_COLUMNS =
   'id, auth_user_id, employee_number, first_name, last_name, email, role, is_active, department_id, job_role_id';
 const ATTENDANCE_COLUMNS =
-  'id, employee_id, employee_number, employee_name, employee_role, work_date, clock_in, clock_out, clockout_type, worked_minutes, clock_in_biometric, clock_out_biometric';
+  'id, employee_id, employee_number, employee_name, work_date, clock_in, clock_out, clockout_type, worked_minutes, clock_in_biometric, clock_out_biometric';
 
 function unwrap({ data, error }) {
   if (error) throw new Error(error.message || 'Request failed.');
