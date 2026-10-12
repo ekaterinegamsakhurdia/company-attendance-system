@@ -8,6 +8,9 @@ import { downloadCsv, toCsv } from '../../lib/csv';
 import { formatDate, formatTime, formatWorked, monthStartInTz, todayInTz } from '../../lib/time';
 import AttendanceEditor from './AttendanceEditor';
 
+const NO_DEPT = '__none__'; // CEOs and developers belong to no department
+const ACCOUNT_LABEL = { employee: 'Employee', ceo: 'CEO', developer: 'Developer' };
+
 function shiftDays(ymd, days) {
   const d = new Date(`${ymd}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
@@ -29,8 +32,9 @@ export default function ReportsTab({ directory, readOnly = false }) {
   const deptName = (id) => directory.departments?.find((d) => d.id === id)?.name ?? '';
   const roleName = (id) => directory.jobRoles?.find((r) => r.id === id)?.name ?? '';
 
+  // Everyone the signed-in person may see, CEOs and developers included.
   const pickable = directory.employees.filter(
-    (e) => e.role !== 'developer' && (!departmentId || e.department_id === departmentId),
+    (e) => !departmentId || (departmentId === NO_DEPT ? !e.department_id : e.department_id === departmentId),
   );
 
   // A department filter without a person narrows the query to that department's employees.
@@ -58,6 +62,12 @@ export default function ReportsTab({ directory, readOnly = false }) {
   const label = (r) => (r.employee_id ? r.employee_name : `${r.employee_name ?? 'Unknown'} (deleted)`);
   const emp = (r) => employeesById.get(r.employee_id);
   const yesNo = (v) => (v ? 'yes' : 'no');
+  // Department name, or "CEO" / "Developer" for people who have none.
+  const groupOf = (r) => {
+    const dept = deptName(emp(r)?.department_id);
+    if (dept) return dept;
+    return r.employee_role && r.employee_role !== 'employee' ? ACCOUNT_LABEL[r.employee_role] ?? '' : '';
+  };
 
   function exportCsv() {
     const csv = toCsv(rows, [
@@ -73,6 +83,7 @@ export default function ReportsTab({ directory, readOnly = false }) {
       { label: 'Clock-out type', get: (r) => r.clockout_type },
       { label: 'Biometric at clock-in', get: (r) => yesNo(r.clock_in_biometric) },
       { label: 'Biometric at clock-out', get: (r) => (r.clock_out ? yesNo(r.clock_out_biometric) : '') },
+      { label: 'Account type', get: (r) => ACCOUNT_LABEL[r.employee_role] ?? '' },
     ]);
     downloadCsv(`attendance_${from}_to_${to}.csv`, csv);
   }
@@ -117,6 +128,7 @@ export default function ReportsTab({ directory, readOnly = false }) {
                 }}
               >
                 <option value="">All departments</option>
+                <option value={NO_DEPT}>CEOs and developers (no department)</option>
                 {directory.departments.map((d) => (
                   <option key={d.id} value={d.id}>{d.name}</option>
                 ))}
@@ -186,7 +198,7 @@ export default function ReportsTab({ directory, readOnly = false }) {
                       {label(r)}
                     </td>
                     <td className="la-td">
-                      {deptName(e?.department_id) || '-'}
+                      {groupOf(r) || '-'}
                       {role ? ` · ${role}` : ''}
                     </td>
                     <td className="la-td">{formatTime(r.clock_in, timezone)}</td>

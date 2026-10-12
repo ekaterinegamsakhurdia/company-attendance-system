@@ -93,6 +93,7 @@ export default function AttendanceEditor({ record, employees, timezone, workStar
                 .map((e) => (
                   <option key={e.id} value={e.id}>
                     {e.employee_number} – {e.first_name} {e.last_name}
+                    {e.role === 'ceo' ? ' (CEO)' : e.role === 'developer' ? ' (Developer)' : ''}
                   </option>
                 ))}
             </select>

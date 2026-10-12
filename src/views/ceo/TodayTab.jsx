@@ -1,13 +1,11 @@
-import { useAuth } from '../../hooks/useAuth';
 import MyAttendanceSection from '../../components/MyAttendanceSection';
 import TeamOverview from '../../components/TeamOverview';
 
+/** CEOs and developers clock in here like everyone else, above the team overview. */
 export default function TodayTab({ directory }) {
-  const { employee } = useAuth();
-  const isDeveloper = employee.role === 'developer';   // developers do not clock in
   return (
     <TeamOverview directory={directory}>
-      {!isDeveloper && <MyAttendanceSection showHistory={false} />}
+      <MyAttendanceSection showHistory={false} />
     </TeamOverview>
   );
 }

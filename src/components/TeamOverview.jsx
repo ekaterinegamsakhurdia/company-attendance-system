@@ -5,6 +5,8 @@ import { fetchAttendanceOnDate } from '../services/api';
 import { Alert, DataTable, Message, Pill, PillButton, SectionCard, StatTile } from './ui';
 import { formatDate, formatTime, formatWorked, todayInTz } from '../lib/time';
 
+const ACCOUNT_LABEL = { ceo: 'CEO', developer: 'Developer' };
+
 /**
  * Who is in today. `directory` holds the employees the signed-in person may see
  * (everyone for the CEO, only the own department for a department head).
@@ -15,10 +17,11 @@ export default function TeamOverview({ directory, title = 'Team Overview', onRef
   const team = useLoad(() => fetchAttendanceOnDate(today), [today]);
 
   const records = team.data ?? [];
-  const active = directory.employees.filter((e) => e.is_active && e.role !== 'developer'); // developers do not clock in
+  const active = directory.employees.filter((e) => e.is_active); // CEOs and developers clock in like everyone else
   const byEmployee = new Map(records.map((r) => [r.employee_id, r]));
   const deptName = (id) => directory.departments?.find((d) => d.id === id)?.name ?? '-';
   const roleName = (id) => directory.jobRoles?.find((r) => r.id === id)?.name;
+  const group = (emp) => (emp.department_id ? deptName(emp.department_id) : ACCOUNT_LABEL[emp.role] ?? '-');
 
   const refresh = () => {
     team.reload();
@@ -30,7 +33,7 @@ export default function TeamOverview({ directory, title = 'Team Overview', onRef
     <>
       <SectionCard icon={CalendarDays} eyebrow={formatDate(today)} title={title}>
         <div className="la-grid stats">
-          <StatTile value={active.length} label="Active Employees" />
+          <StatTile value={active.length} label="Active People" />
           <StatTile value={records.length} label="Clocked In Today" />
           <StatTile value={records.filter((r) => !r.clock_out).length} label="Working Now" />
           <StatTile value={records.filter((r) => r.clock_out).length} label="Completed Today" />
@@ -64,7 +67,7 @@ export default function TeamOverview({ directory, title = 'Team Overview', onRef
                     {emp.first_name} {emp.last_name}
                   </td>
                   <td className="la-td">
-                    {deptName(emp.department_id)}
+                    {group(emp)}
                     {role ? ` · ${role}` : ''}
                   </td>
                   <td className="la-td">

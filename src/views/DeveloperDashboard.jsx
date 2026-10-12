@@ -22,7 +22,7 @@ const TABS = [
 /**
  * Developers can do everything a CEO can, plus manage accounts (add / remove CEOs,
  * change account types, edit employee data) and delete departments and job roles.
- * They are not part of attendance: they do not clock in and are left out of reports.
+ * They clock in and out like everyone else (Today tab); their records are visible to developers only.
  */
 export default function DeveloperDashboard() {
   const { employee, signOut } = useAuth();

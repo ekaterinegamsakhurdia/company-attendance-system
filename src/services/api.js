@@ -1,11 +1,12 @@
 // All Supabase calls live here so views stay free of query strings.
 // Every function throws an Error with a user-readable message on failure.
 import { supabase } from './supabase';
+import { friendlyNetworkError } from '../lib/networks';
 
 const EMPLOYEE_COLUMNS =
   'id, auth_user_id, employee_number, first_name, last_name, email, role, is_active, department_id, job_role_id';
 const ATTENDANCE_COLUMNS =
-  'id, employee_id, employee_number, employee_name, work_date, clock_in, clock_out, clockout_type, worked_minutes, clock_in_biometric, clock_out_biometric';
+  'id, employee_id, employee_number, employee_name, employee_role, work_date, clock_in, clock_out, clockout_type, worked_minutes, clock_in_biometric, clock_out_biometric';
 
 function unwrap({ data, error }) {
   if (error) throw new Error(error.message || 'Request failed.');
@@ -168,9 +169,37 @@ export async function addMyNetwork(label) {
 }
 
 export async function addNetwork(label, network) {
-  return unwrap(
-    await supabase.from('allowed_networks').insert({ label: label.trim(), network: network.trim() }).select().single(),
-  );
+  const { data, error } = await supabase
+    .from('allowed_networks')
+    .insert({ label: label.trim(), network: network.trim() })
+    .select()
+    .single();
+  if (error) throw new Error(friendlyNetworkError(error.message));
+  return data;
+}
+
+/**
+ * Adds many networks at once. One request when everything is valid; if anything is
+ * rejected, falls back to one-by-one so the good lines still go in.
+ * Returns { added, failed: [{ line, network, message }] }.
+ */
+export async function addNetworks(items) {
+  if (items.length === 0) return { added: 0, failed: [] };
+  const rows = items.map((i) => ({ label: i.label.trim(), network: i.network.trim() }));
+  const bulk = await supabase.from('allowed_networks').insert(rows);
+  if (!bulk.error) return { added: rows.length, failed: [] };
+
+  let added = 0;
+  const failed = [];
+  for (const item of items) {
+    try {
+      await addNetwork(item.label, item.network);
+      added += 1;
+    } catch (err) {
+      failed.push({ line: item.line, network: item.network, message: err.message });
+    }
+  }
+  return { added, failed };
 }
 
 export async function updateNetwork(id, patch) {

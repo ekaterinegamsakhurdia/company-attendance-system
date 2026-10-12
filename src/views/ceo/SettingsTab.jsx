@@ -5,9 +5,11 @@ import { useLoad } from '../../hooks/useLoad';
 import { useToast } from '../../components/Toast';
 import { ConfirmDialog } from '../../components/Modal';
 import { Alert, DataTable, Field, Message, Pill, PillButton, SectionCard } from '../../components/ui';
+import { parseNetworkLines } from '../../lib/networks';
 import {
   addMyNetwork,
   addNetwork,
+  addNetworks,
   createDepartment,
   createJobRole,
   deleteDepartment,
@@ -108,10 +110,51 @@ function SecurityCard() {
   const [label, setLabel] = useState('');
   const [manualLabel, setManualLabel] = useState('');
   const [manualNet, setManualNet] = useState('');
+  const [showBulk, setShowBulk] = useState(false);
+  const [bulkText, setBulkText] = useState('');
+  const [filter, setFilter] = useState('');
+  const [showAll, setShowAll] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editLabel, setEditLabel] = useState('');
   const [error, setError] = useState('');
 
   const list = networks.data ?? [];
   const activeCount = list.filter((n) => n.is_active).length;
+  const needle = filter.trim().toLowerCase();
+  const matching = needle
+    ? list.filter((n) => n.label.toLowerCase().includes(needle) || String(n.network).toLowerCase().includes(needle))
+    : list;
+  const PAGE = 50;
+  const visible = showAll || needle ? matching : matching.slice(0, PAGE);
+
+  async function addMany() {
+    const items = parseNetworkLines(bulkText);
+    if (items.length === 0) {
+      setError('Paste at least one network, one per line.');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      const { added, failed } = await addNetworks(items);
+      if (added) toast.success(`${added} network${added === 1 ? '' : 's'} added.`);
+      if (failed.length) {
+        // keep only the lines that failed so they can be fixed and sent again
+        const failedLines = new Set(failed.map((f) => f.line));
+        setBulkText(items.filter((i) => failedLines.has(i.line)).map((i) => `${i.label}, ${i.network}`).join('\n'));
+        const shown = failed.slice(0, 5).map((f) => `line ${f.line} (${f.network}): ${f.message}`);
+        setError(`${failed.length} not added. ${shown.join(' · ')}${failed.length > 5 ? ` · and ${failed.length - 5} more` : ''}`);
+      } else {
+        setBulkText('');
+        setShowBulk(false);
+      }
+      await Promise.all([networks.reload(), refreshSettings()]);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function run(action, message) {
     setBusy(true);
@@ -178,8 +221,13 @@ function SecurityCard() {
           ) : (
             <>Your public IP could not be detected from this connection. </>
           )}
-          Offices usually have one public IPv4 address; if your wifi also hands out IPv6, add that network too (use
-          "Add my current network" while connected over IPv6).
+          Add as many networks as you need, there is no limit: every office, branch or home connection has its own
+          public address. The app recognises a network by that public IP address, not by the wifi name. Offices usually
+          have one public IPv4 address; if your wifi also hands out IPv6, add that network too (use "Add my current
+          network" while connected over IPv6).
+        </div>
+        <div className="la-meta" aria-live="polite">
+          <strong>{list.length}</strong> network{list.length === 1 ? '' : 's'} · <strong>{activeCount}</strong> active
         </div>
 
         <div className="la-toolbar">
@@ -219,28 +267,120 @@ function SecurityCard() {
           </button>
         </form>
 
+        <div>
+          <PillButton variant="ghost" size="sm" icon={Plus} onClick={() => setShowBulk((v) => !v)} aria-expanded={showBulk}>
+            {showBulk ? 'Hide bulk add' : 'Add many at once'}
+          </PillButton>
+        </div>
+        {showBulk && (
+          <div className="la-stack" style={{ gap: 8 }}>
+            <Field label="One network per line: label, IP or range" id="net-bulk" hint="Example: Main office, 203.0.113.7 (the label is optional).">
+              <textarea
+                id="net-bulk"
+                className="la-input"
+                rows={6}
+                value={bulkText}
+                onChange={(e) => setBulkText(e.target.value)}
+                placeholder={'Main office, 203.0.113.7\nBranch Batumi, 198.51.100.0/28\n2001:db8:1234:5678::/64'}
+              />
+            </Field>
+            <div>
+              <button type="button" className="la-btn secondary sm" disabled={busy || !bulkText.trim()} onClick={addMany}>
+                <Plus size={16} aria-hidden="true" /> Add all
+              </button>
+            </div>
+          </div>
+        )}
+
+        {list.length > 8 && (
+          <Field label="Search networks" id="net-filter">
+            <input
+              id="net-filter"
+              className="la-input compact"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Label or address"
+            />
+          </Field>
+        )}
+
         {list.length === 0 ? (
           <Message>No networks yet. Add one before turning on the network rule.</Message>
+        ) : matching.length === 0 ? (
+          <Message>No network matches "{filter}".</Message>
         ) : (
-          <DataTable headers={['Label', 'Network', 'Status', '']}>
-            {list.map((n) => (
-              <tr key={n.id}>
-                <td className="la-td">{n.label}</td>
-                <td className="la-td">{n.network}</td>
-                <td className="la-td">{n.is_active ? <Pill tone="ok">Active</Pill> : <Pill tone="off">Off</Pill>}</td>
-                <td className="la-td">
-                  <div className="la-toolbar">
-                    <PillButton variant="ghost" size="sm" disabled={busy} onClick={() => run(() => updateNetwork(n.id, { is_active: !n.is_active }))}>
-                      {n.is_active ? 'Turn off' : 'Turn on'}
-                    </PillButton>
-                    <PillButton variant="danger" size="sm" icon={Trash2} disabled={busy} onClick={() => run(() => deleteNetwork(n.id), 'Network removed.')}>
-                      Remove
-                    </PillButton>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </DataTable>
+          <>
+            <DataTable headers={['Label', 'Network', 'Status', '']}>
+              {visible.map((n) => (
+                <tr key={n.id}>
+                  <td className="la-td">
+                    {editingId === n.id ? (
+                      <input
+                        className="la-input compact"
+                        aria-label={`Label for ${n.network}`}
+                        value={editLabel}
+                        maxLength={80}
+                        onChange={(e) => setEditLabel(e.target.value)}
+                        autoFocus
+                      />
+                    ) : (
+                      n.label
+                    )}
+                  </td>
+                  <td className="la-td">{n.network}</td>
+                  <td className="la-td">{n.is_active ? <Pill tone="ok">Active</Pill> : <Pill tone="off">Off</Pill>}</td>
+                  <td className="la-td">
+                    <div className="la-toolbar">
+                      {editingId === n.id ? (
+                        <>
+                          <PillButton
+                            size="sm"
+                            disabled={busy || !editLabel.trim()}
+                            onClick={() =>
+                              run(() => updateNetwork(n.id, { label: editLabel.trim() }), 'Label saved.').then((ok) => ok && setEditingId(null))
+                            }
+                          >
+                            Save
+                          </PillButton>
+                          <PillButton variant="ghost" size="sm" disabled={busy} onClick={() => setEditingId(null)}>
+                            Cancel
+                          </PillButton>
+                        </>
+                      ) : (
+                        <>
+                          <PillButton
+                            variant="ghost"
+                            size="sm"
+                            disabled={busy}
+                            onClick={() => {
+                              setEditingId(n.id);
+                              setEditLabel(n.label);
+                            }}
+                          >
+                            Rename
+                          </PillButton>
+                          <PillButton variant="ghost" size="sm" disabled={busy} onClick={() => run(() => updateNetwork(n.id, { is_active: !n.is_active }))}>
+                            {n.is_active ? 'Turn off' : 'Turn on'}
+                          </PillButton>
+                          <PillButton variant="danger" size="sm" icon={Trash2} disabled={busy} onClick={() => run(() => deleteNetwork(n.id), 'Network removed.')}>
+                            Remove
+                          </PillButton>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </DataTable>
+            {!needle && matching.length > PAGE && (
+              <div className="la-meta">
+                Showing {visible.length} of {matching.length}.{' '}
+                <button type="button" className="la-link" onClick={() => setShowAll((v) => !v)}>
+                  {showAll ? 'Show fewer' : 'Show all'}
+                </button>
+              </div>
+            )}
+          </>
         )}
         {settings.require_company_network && activeCount === 0 && <Alert error>No active network: nobody can clock in.</Alert>}
       </SectionCard>

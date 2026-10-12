@@ -8,11 +8,13 @@ Employee attendance tracker. React 19 + Vite on the front end, Supabase (Postgre
 
 | CEO tab | What it does |
 |---|---|
-| Today | Team status for today, the CEO's own clock-in/out |
+| Today | Team status for today (CEOs and developers included), the CEO's own clock-in/out |
 | Reports | Date-range / department / employee report, CSV export, correct or add records (reason required, audited) |
 | Employees | Add + invite, resend invitation, department, job role, registered devices, delete |
 | Settings | Company name, time zone, work hours, **clock-in security**, **company networks**, department heads, job roles |
 | Audit Log | Who changed what, with reasons |
+
+**CEOs and developers clock in and out like everyone else** (Today tab) and appear in the daily overview, reports, CSV exports, corrections and auto clock-out. In reports they are listed under "CEOs and developers (no department)"; the CSV has an *Account type* column (last column, so existing column positions did not change). Visibility follows the account types: a **developer's attendance is visible to developers only** (CEOs and department heads never see it, including after the account is deleted); a CEO's attendance is visible to CEOs and developers.
 
 **Adding an employee always needs a department**, and a **job role** whenever that department has job roles (today only Production). The database enforces this, not just the form. Moving someone to another department asks for the new job role in the same step.
 
@@ -29,7 +31,7 @@ A developer is the technical owner of the app. They get their own **Developer Da
 | Settings | Company settings, clock-in security switches, office networks |
 | Today / Reports / Audit Log | Same as the CEO |
 
-Rules: developer accounts are **invisible to CEOs** (the CEO's lists, edit and delete calls never see them); a developer cannot change their own type, deactivate or delete themselves, so there is always at least one; developers belong to no department and do not clock in (they are left out of attendance and reports). A department or job role can only be deleted when nobody belongs to it. Everything is written to the audit log, which the CEO can read.
+Rules: developer accounts are **invisible to CEOs** (the CEO's lists, edit and delete calls never see them); a developer cannot change their own type, deactivate or delete themselves, so there is always at least one; developers belong to no department but clock in like everyone else; only developers can see or correct a developer's attendance and registered devices. A department or job role can only be deleted when nobody belongs to it. Everything is written to the audit log, which the CEO can read.
 
 **Create the first developer** once, after applying the migrations: create the login in *Authentication → Users → Add user* (tick *Auto Confirm User*), then edit and run `supabase/tools/create_first_developer.sql` in the SQL editor. Use an email that is not the CEO's. All other accounts are then created from the dashboard.
 
@@ -39,6 +41,8 @@ Two switches in **Settings → Clock-in Security** (both **off** after the migra
 
 1. **Require the company network.** Clock in/out is refused unless the request comes from an IP the CEO listed under *Company Networks*. Logging in and viewing history work from anywhere. The CEO can add the network they are on with one click.
 2. **Require Face ID / fingerprint.** Every clock-in and clock-out needs a fresh check on a registered device (WebAuthn / passkey). The employee registers a phone or laptop once (re-entering their password), max 3 devices; the CEO can remove devices.
+
+**Company networks have no limit.** Add as many as you need under *Company Networks*: one at a time, with *Add my current network*, or paste a whole list under *Add many at once* (one per line: `Main office, 203.0.113.7`, ranges such as `198.51.100.0/28` and IPv6 prefixes work too; lines that fail are reported with their line number and the rest are still added). Long lists get a search box and paging, and labels can be renamed. The app recognises a network by its **public IP address**, not by the wifi name, so each office, branch or home connection needs its own entry.
 
 Together with email + password at login, that is the full clock-in path: password → company network → Face ID / fingerprint. The CEO is held to the same rules.
 
@@ -68,6 +72,7 @@ npm run dev
    1. `20261007120000_hardening_and_features.sql`, **drops all existing policies on the app tables and replaces them.**
    2. `20261007180000_org_structure_network_biometric.sql`, departments seed (Advertising, Account Managers, Production, Copywriting, Design), production job roles, department heads, allowed networks, WebAuthn tables, network/biometric enforcement. An existing `company_public_ip` is carried over into the network list.
    3. `20261008120000_developer_role.sql`, the `developer` account type, developer-only functions, and the rule that new employees need a department (and job role when the department has any). Existing employees are not touched.
+   4. `20261012120000_leadership_attendance.sql`, who may see and correct CEO / developer attendance (and developers' registered devices). Adds an `employee_role` snapshot column to `attendance` and fills it for existing rows. No Edge Function change.
 3. If the migration prints `pg_cron is not available`, enable the *pg_cron* extension in the dashboard and run:
    `select cron.schedule('auto-clock-out', '*/10 * * * *', 'select public.auto_clock_out()');`
 4. Check Dashboard → Authentication → URL Configuration: the Site URL and redirect list must include `https://YOUR-SITE/set-password`.
@@ -89,7 +94,7 @@ supabase functions deploy change-email
 
 ### Rollout checklist
 
-0. Apply migration 3, deploy `invite-employee`, `delete-employee` and `change-email` again, and create the first developer (see *Developer account*).
+0. Apply migrations 3 and 4, deploy `invite-employee`, `delete-employee` and `change-email` again, and create the first developer (see *Developer account*). If you already did this for migration 3, only `supabase db push` is needed for migration 4.
 1. Apply migration 2 and deploy the `webauthn` function. Nothing changes for employees yet.
 2. As CEO open the **Employees** tab and set each person's department and (for Production) job role, then pick the five department heads under **Settings**.
 3. **Settings → Company Networks:** while on the office wifi press *Add my current network*. Check that the shown IP is the office's public IP.
@@ -107,7 +112,7 @@ npm run build
 PGHOST=localhost PGUSER=postgres ./supabase/tests/run.sh
 ```
 
-The database tests build a mock of Supabase's `auth` schema, apply both migrations and assert RLS, department-head scope, job-role integrity, network enforcement (including spoofed headers), one-time biometric tokens, server-side time, corrections, audit entries, auto clock-out (including overnight shifts) and the delete order.
+The database tests build a mock of Supabase's `auth` schema, apply all four migrations and assert RLS, department-head scope, job-role integrity, network enforcement (including spoofed headers), one-time biometric tokens, server-side time, corrections, audit entries, auto clock-out (including overnight shifts), the delete order, CEO / developer attendance visibility, and 300 company networks (single addresses, a range and an IPv6 prefix).
 
 CI (`.github/workflows/ci.yml`) runs lint, unit tests, build, the database tests on Postgres 16 and `deno check` on all four Edge Functions.
 

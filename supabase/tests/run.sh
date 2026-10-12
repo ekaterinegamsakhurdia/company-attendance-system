@@ -13,6 +13,7 @@ done
 psql -v ON_ERROR_STOP=1 -q -d $DB -f 02_tests.sql
 psql -v ON_ERROR_STOP=1 -q -d $DB -f 03_tests_org_network_biometric.sql
 psql -v ON_ERROR_STOP=1 -q -d $DB -f 04_tests_developer.sql
+psql -v ON_ERROR_STOP=1 -q -d $DB -f 05_tests_leadership.sql
 
 # First-developer script: promotes a normal login, refuses to consume the only CEO
 psql -v ON_ERROR_STOP=1 -q -d $DB -c "insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000f9','first.dev@x.test')"

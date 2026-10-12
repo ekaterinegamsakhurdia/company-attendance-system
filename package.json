@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
-    "test": "node --test src/lib/time.test.mjs",
+    "test": "node --test src/lib/time.test.mjs src/lib/networks.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
