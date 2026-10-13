@@ -158,6 +158,7 @@ export function Shell({ children, wide, onLogout }) {
         </div>
       </header>
       <main className={`la-main${wide ? ' wide' : ''}`}>{children}</main>
+      <footer className="la-version">Version {typeof __BUILD_STAMP__ === 'string' ? __BUILD_STAMP__ : 'dev'}</footer>
     </div>
   );
 }

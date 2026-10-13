@@ -2,29 +2,32 @@ import { useEffect, useState } from 'react';
 import { KeyRound } from 'lucide-react';
 import { supabase } from '../services/supabase';
 import { Alert, Hero, SectionCard, Shell } from '../components/ui';
+import { authLink } from '../lib/authLink';
 
 const MIN_LENGTH = 8;
 
-// Supabase reports an expired/used link in the URL hash, e.g. #error_description=...
-function linkErrorFromUrl() {
-  const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-  return params.get('error_description')?.replaceAll('+', ' ') ?? '';
-}
+const friendly = (message) => {
+  if (/same as the old|different from the old/i.test(message)) return 'Choose a password you have not used before.';
+  if (/weak|easy to guess|pwned/i.test(message)) return 'That password is too easy to guess. Use a longer one with letters and numbers.';
+  if (/expired|invalid/i.test(message)) return 'This link has expired or was already used.';
+  return message;
+};
 
 export default function SetPassword() {
-  const [state, setState] = useState('checking'); // checking | ready | invalid | done
+  const [state, setState] = useState(authLink.tokenHash && !authLink.error ? 'confirm' : 'checking'); // confirm | checking | ready | invalid | done
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const urlError = linkErrorFromUrl();
-    if (urlError) {
-      setError(urlError);
+    if (authLink.error) {
+      setError(friendly(authLink.error));
       setState('invalid');
       return undefined;
     }
+    // A "confirm" link waits for a click (see confirmLink), so mail scanners cannot use it up.
+    if (authLink.tokenHash) return undefined;
 
     let active = true;
     // getSession() waits for the invite/recovery token in the URL to be processed.
@@ -43,6 +46,23 @@ export default function SetPassword() {
     };
   }, []);
 
+  async function confirmLink() {
+    setError('');
+    setSaving(true);
+    const { error: verifyError } = await supabase.auth.verifyOtp({
+      token_hash: authLink.tokenHash,
+      type: authLink.type === 'recovery' ? 'recovery' : 'invite',
+    });
+    setSaving(false);
+    if (verifyError) {
+      setError(friendly(verifyError.message));
+      setState('invalid');
+      return;
+    }
+    window.history.replaceState(null, '', '/set-password');
+    setState('ready');
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
     setError('');
@@ -58,7 +78,7 @@ export default function SetPassword() {
     const { error: updateError } = await supabase.auth.updateUser({ password });
     setSaving(false);
     if (updateError) {
-      setError(updateError.message);
+      setError(friendly(updateError.message));
       return;
     }
     setState('done');
@@ -75,6 +95,18 @@ export default function SetPassword() {
             Checking your link…
           </div>
         </section>
+      )}
+
+      {state === 'confirm' && (
+        <SectionCard icon={KeyRound} eyebrow="Account setup" title={authLink.type === 'recovery' ? 'Reset your password' : 'Welcome'}>
+          <p className="la-hint">
+            {authLink.type === 'recovery' ? 'Press the button to choose a new password.' : 'Press the button to create your password and finish setting up your account.'}
+          </p>
+          {error && <Alert error>{error}</Alert>}
+          <button type="button" className="la-btn primary block" onClick={confirmLink} disabled={saving}>
+            {saving ? 'Please wait…' : 'Continue'}
+          </button>
+        </SectionCard>
       )}
 
       {state === 'invalid' && (

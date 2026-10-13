@@ -361,3 +361,5 @@ textarea.la-input { resize: vertical; min-height: 84px; }
 .la-stepper { display: inline-flex; align-items: center; gap: 6px; }
 .la-stepper input { width: 84px; margin-bottom: 0; text-align: center; padding: 9px 8px; }
 .la-neg { color: #ff8a8a; }
+
+.la-version { text-align: center; color: var(--text-muted); font-size: 11px; padding: 8px 16px 24px; opacity: .7; }

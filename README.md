@@ -114,7 +114,9 @@ npm run dev
    6. `20261014120000_profile_details.sql`, office, country, working hours per day and a chosen approver on the profile; one `set_employee_profile()` function that replaces `set_employee_dates()` for the app; `list_leaves()` can be limited to one person; the leave form pre-selects the person's approver. Safe to run more than once; no Edge Function change.
 3. If the migration prints `pg_cron is not available`, enable the *pg_cron* extension in the dashboard and run:
    `select cron.schedule('auto-clock-out', '*/10 * * * *', 'select public.auto_clock_out()');`
-4. Check Dashboard → Authentication → URL Configuration: the Site URL and redirect list must include `https://YOUR-SITE/set-password`.
+4. Check Dashboard → Authentication → URL Configuration: the Site URL and redirect list must include `https://YOUR-SITE/set-password`. If it is missing, Supabase sends the person to the site root instead; the app now still shows the *Create Your Password* page (or *Link problem* for an expired link) in that case, but add the address anyway.
+   **Optional but recommended, so e-mail scanners cannot use up the link:** some mail providers open links to scan them, which makes the one-time invitation link "expired" before the person clicks it. In *Authentication → Email Templates* change the button link of **Invite user** to `{{ .SiteURL }}/set-password?token_hash={{ .TokenHash }}&type=invite` and of **Reset password** to `{{ .SiteURL }}/set-password?token_hash={{ .TokenHash }}&type=recovery`. The page then shows a *Continue* button and only uses the link when the person presses it. The default links keep working too.
+   The bottom of every page shows the running version (commit and date); use it to check that the site has really been updated.
 
 ### Edge Functions
 
