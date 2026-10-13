@@ -152,7 +152,7 @@ npm test                              # time zone, CSV, calendar, leave, birthda
 npm run build
 
 # Database (needs a throw-away Postgres 14+; never run against production)
-PGHOST=localhost PGUSER=postgres ./supabase/tests/run.sh
+PGHOST=localhost PGUSER=postgres bash supabase/tests/run.sh
 ```
 
 The database tests build a mock of Supabase's `auth` schema, apply all six migrations and assert RLS, department-head scope, job-role integrity, network enforcement (including spoofed headers), one-time biometric tokens, server-side time, corrections, audit entries, auto clock-out (including overnight shifts), the delete order, CEO / developer attendance rules, 300 company networks (single addresses, a range and an IPv6 prefix), and the leave rules: Georgian holidays and Orthodox Easter for 2025–2030 and 2035, working-day counting, year splits, approval authority, overlaps, balances, replacement conflicts, cancel rules, listing scopes, allowances, profile privacy, developer edit rights, audit rows and cascade deletes, and the profile details (office, country, hours, approver, one-person leave lists, approver pre-selection).
