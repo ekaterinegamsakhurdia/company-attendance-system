@@ -71,9 +71,9 @@ do $$ declare prod uuid; des uuid; ad uuid; montage uuid; other_role uuid; inact
   delete from public.departments where name='Closed Dept';
 end $$;
 
--- policy count unchanged: employees_select was replaced, not added
+-- policy count: 17 from migrations 1-4 (employees_select was replaced, not added) + 7 from migration 5
 do $$ begin
-  if (select count(*) from pg_policies where schemaname='public') <> 17 then
+  if (select count(*) from pg_policies where schemaname='public') <> 24 then
     raise exception 'unexpected policy count: %', (select count(*) from pg_policies where schemaname='public'); end if;
 end $$;
 

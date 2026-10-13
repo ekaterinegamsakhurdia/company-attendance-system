@@ -1,23 +1,33 @@
 import { useEffect, useRef } from 'react';
 import { PillButton } from './ui';
 
-export function Modal({ title, description, onClose, children }) {
+export function Modal({ title, description, onClose, wide, children }) {
   const ref = useRef(null);
+  const closeRef = useRef(onClose);
+  useEffect(() => {
+    closeRef.current = onClose;
+  });
 
+  // Runs once per dialog, so re-renders of the parent never steal the focus.
   useEffect(() => {
     const previouslyFocused = document.activeElement;
     ref.current?.querySelector('input, select, textarea, button')?.focus();
-    const onKey = (e) => e.key === 'Escape' && onClose();
+    // Escape closes only the top-most dialog.
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      const dialogs = document.querySelectorAll('.la-modal');
+      if (dialogs[dialogs.length - 1] === ref.current) closeRef.current();
+    };
     document.addEventListener('keydown', onKey);
     return () => {
       document.removeEventListener('keydown', onKey);
       previouslyFocused?.focus?.();
     };
-  }, [onClose]);
+  }, []);
 
   return (
     <div className="la-overlay">
-      <div className="la-modal" role="dialog" aria-modal="true" aria-label={title} ref={ref}>
+      <div className={`la-modal${wide ? ' wide' : ''}`} role="dialog" aria-modal="true" aria-label={title} ref={ref}>
         <h2>{title}</h2>
         {description && <p className="la-meta" style={{ marginBottom: 16 }}>{description}</p>}
         {children}

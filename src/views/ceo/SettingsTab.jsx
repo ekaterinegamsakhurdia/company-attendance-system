@@ -6,6 +6,7 @@ import { useToast } from '../../components/Toast';
 import { ConfirmDialog } from '../../components/Modal';
 import { Alert, DataTable, Field, Message, Pill, PillButton, SectionCard } from '../../components/ui';
 import { parseNetworkLines } from '../../lib/networks';
+import HolidaysCard from './HolidaysCard';
 import {
   addMyNetwork,
   addNetwork,
@@ -44,6 +45,9 @@ function CompanyForm({ initial, onSaved }) {
     work_start_time: trimSeconds(initial.work_start_time),
     work_end_time: trimSeconds(initial.work_end_time),
     timezone: initial.timezone,
+    leave_vacation_days: String(initial.leave_vacation_days ?? 24),
+    leave_unpaid_days: String(initial.leave_unpaid_days ?? 15),
+    leave_day_off_days: String(initial.leave_day_off_days ?? 4),
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -54,11 +58,20 @@ function CompanyForm({ initial, onSaved }) {
     setBusy(true);
     setError('');
     try {
+      const days = {};
+      for (const key of ['leave_vacation_days', 'leave_unpaid_days', 'leave_day_off_days']) {
+        const n = Number(form[key]);
+        if (form[key].trim() === '' || !Number.isInteger(n) || n < 0 || n > 366) {
+          throw new Error('Leave allowances must be whole numbers of days between 0 and 366.');
+        }
+        days[key] = n;
+      }
       await saveCompanySettings({
         company_name: form.company_name.trim(),
         work_start_time: form.work_start_time,
         work_end_time: form.work_end_time,
         timezone: form.timezone.trim(),
+        ...days,
       });
       await refreshSettings();
       toast.success('Settings saved.');
@@ -89,6 +102,18 @@ function CompanyForm({ initial, onSaved }) {
         </Field>
         <Field label="Work day ends" id="set-end" hint="Anyone still clocked in is clocked out automatically at this time.">
           <input id="set-end" type="time" className="la-input" value={form.work_end_time} onChange={set('work_end_time')} required />
+        </Field>
+      </div>
+      <h3 className="la-section-title" style={{ margin: '8px 0 12px' }}>Yearly leave allowance per person</h3>
+      <div className="la-field-grid">
+        <Field label="Vacation days" id="set-vac" hint="Working days a year. Individual allowances can be changed in Analytics.">
+          <input id="set-vac" className="la-input" inputMode="numeric" value={form.leave_vacation_days} onChange={set('leave_vacation_days')} required />
+        </Field>
+        <Field label="Unpaid leave days" id="set-unpaid">
+          <input id="set-unpaid" className="la-input" inputMode="numeric" value={form.leave_unpaid_days} onChange={set('leave_unpaid_days')} required />
+        </Field>
+        <Field label="Days off" id="set-dayoff">
+          <input id="set-dayoff" className="la-input" inputMode="numeric" value={form.leave_day_off_days} onChange={set('leave_day_off_days')} required />
         </Field>
       </div>
       {error && <Alert error>{error}</Alert>}
@@ -681,6 +706,8 @@ export default function SettingsTab({ directory, showOrganisation = true }) {
           !settings.error && <Message>Loading…</Message>
         )}
       </SectionCard>
+
+      <HolidaysCard />
 
       <SecurityCard />
 

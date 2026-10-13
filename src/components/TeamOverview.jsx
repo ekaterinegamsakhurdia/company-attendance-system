@@ -2,6 +2,7 @@ import { CalendarDays, RefreshCw } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useLoad } from '../hooks/useLoad';
 import { fetchAttendanceOnDate } from '../services/api';
+import PersonLink from './PersonLink';
 import { Alert, DataTable, Message, Pill, PillButton, SectionCard, StatTile } from './ui';
 import { formatDate, formatTime, formatWorked, todayInTz } from '../lib/time';
 
@@ -64,7 +65,7 @@ export default function TeamOverview({ directory, title = 'Team Overview', onRef
                 <tr key={emp.id}>
                   <td className="la-td">{emp.employee_number}</td>
                   <td className="la-td">
-                    {emp.first_name} {emp.last_name}
+                    <PersonLink id={emp.id}>{emp.first_name} {emp.last_name}</PersonLink>
                   </td>
                   <td className="la-td">
                     {group(emp)}

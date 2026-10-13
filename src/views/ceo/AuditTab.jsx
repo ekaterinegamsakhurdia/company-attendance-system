@@ -34,6 +34,20 @@ const ACTION_LABELS = {
   'webauthn.register': 'Device registered',
   'webauthn.remove': 'Device removed',
   'webauthn.auth_failed': 'Biometric check failed',
+  'leave.request': 'Leave requested',
+  'leave.approve': 'Leave approved',
+  'leave.reject': 'Leave rejected',
+  'leave.cancel': 'Leave cancelled',
+  'leave.dev_create': 'Leave added (developer)',
+  'leave.dev_update': 'Leave edited (developer)',
+  'leave.delete': 'Leave deleted',
+  'leave.allowance': 'Leave allowance changed',
+  'employee.dates': 'Birth / start date changed',
+  'employee.profile': 'Profile details changed',
+  'holidays.seed': 'Georgian holidays added',
+  'public_holidays.insert': 'Holiday added',
+  'public_holidays.update': 'Holiday changed',
+  'public_holidays.delete': 'Holiday removed',
 };
 
 export default function AuditTab({ directory }) {

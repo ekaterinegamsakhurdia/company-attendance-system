@@ -1,246 +1,145 @@
 import { useMemo, useState } from 'react';
-import { Download, FileText, Pencil, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Filter, X } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useLoad } from '../../hooks/useLoad';
-import { fetchAttendanceRange } from '../../services/api';
-import { Alert, DataTable, Field, Message, Pill, PillButton, SectionCard } from '../../components/ui';
-import { downloadCsv, toCsv } from '../../lib/csv';
-import { formatDate, formatTime, formatWorked, monthStartInTz, todayInTz } from '../../lib/time';
-import AttendanceEditor from './AttendanceEditor';
+import MultiSelect from '../../components/MultiSelect';
+import { Field, PillButton } from '../../components/ui';
+import { listProfiles } from '../../services/api';
+import { monthEnd, shiftRange } from '../../lib/calendar';
+import { CATEGORIES, STATUS_LABELS } from '../../lib/leaves';
+import { monthStartInTz } from '../../lib/time';
+import { NO_TEAM, approverOptions, filterPeople, hasFilters } from '../../lib/reportFilters';
+import Timesheet from './Timesheet';
+import RecordsReport from './RecordsReport';
+import LeavesReport from './LeavesReport';
 
-const NO_DEPT = '__none__'; // CEOs and developers belong to no department
-const ACCOUNT_LABEL = { employee: 'Employee', ceo: 'CEO', developer: 'Developer' };
+const VIEWS = [
+  { id: 'timesheet', label: 'Timesheet' },
+  { id: 'records', label: 'Records' },
+  { id: 'leaves', label: 'Leaves' },
+];
+const EMPTY_PROFILES = new Map();
+const fullName = (e) => `${e.first_name} ${e.last_name}`;
 
-function shiftDays(ymd, days) {
-  const d = new Date(`${ymd}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
-/** CEO: full report with corrections. readOnly (department heads): same data, no editing. */
+/**
+ * Reports: a timesheet grid, the raw clock-in / clock-out records and a leave report,
+ * all narrowed by the same filters (dates, employees, teams, approvers, leave types).
+ * readOnly (department heads): their own department, no Teams / Approvers filters, no editing.
+ */
 export default function ReportsTab({ directory, readOnly = false }) {
-  const { timezone, settings, employee: me } = useAuth();
-  const isDeveloper = me.role === 'developer';
-  const today = todayInTz(timezone);
+  const { timezone } = useAuth();
+  const [view, setView] = useState('timesheet');
+  const monthStart = monthStartInTz(timezone);
+  const [range, setRange] = useState(() => ({ from: monthStart, to: monthEnd(monthStart) }));
+  const [employeeIds, setEmployeeIds] = useState([]);
+  const [teamIds, setTeamIds] = useState([]);
+  const [approverIds, setApproverIds] = useState([]);
+  const [leaveTypes, setLeaveTypes] = useState([]);
+  const [status, setStatus] = useState('');
+  const [showFilters, setShowFilters] = useState(true);
 
-  const [from, setFrom] = useState(monthStartInTz(timezone));
-  const [to, setTo] = useState(today);
-  const [departmentId, setDepartmentId] = useState('');
-  const [employeeId, setEmployeeId] = useState('');
-  const [editor, setEditor] = useState(null); // null | { record }
-
-  const employeesById = useMemo(() => new Map(directory.employees.map((e) => [e.id, e])), [directory.employees]);
-  const deptName = (id) => directory.departments?.find((d) => d.id === id)?.name ?? '';
-  const roleName = (id) => directory.jobRoles?.find((r) => r.id === id)?.name ?? '';
-
-  // Everyone the signed-in person may see, CEOs and developers included.
-  const pickable = directory.employees.filter(
-    (e) => !departmentId || (departmentId === NO_DEPT ? !e.department_id : e.department_id === departmentId),
+  const profileRows = useLoad(listProfiles, [], { enabled: !readOnly });
+  const profiles = useMemo(
+    () => (readOnly ? EMPTY_PROFILES : new Map((profileRows.data ?? []).map((p) => [p.employee_id, p]))),
+    [readOnly, profileRows.data],
   );
 
-  // A department filter without a person narrows the query to that department's employees.
-  const scopeIds = departmentId && !employeeId ? pickable.map((e) => e.id) : null;
-  const scopeKey = scopeIds ? scopeIds.join(',') : '';
+  const everyone = directory.employees;
+  const departments = useMemo(() => directory.departments ?? [], [directory.departments]);
+  const active = useMemo(() => everyone.filter((e) => e.is_active), [everyone]);
 
-  const rangeValid = Boolean(from && to && from <= to);
-  const report = useLoad(
-    () =>
-      scopeIds && scopeIds.length === 0
-        ? Promise.resolve([])
-        : fetchAttendanceRange({ from, to, employeeId: employeeId || null, employeeIds: scopeIds }),
-    [from, to, employeeId, departmentId, scopeKey],
-    { enabled: rangeValid },
+  const filters = { employeeIds, teamIds: readOnly ? [] : teamIds, approverIds: readOnly ? [] : approverIds };
+  const people = useMemo(
+    () => filterPeople({ employees: active, profiles, departments, ...filters }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [active, profiles, departments, employeeIds, teamIds, approverIds, readOnly],
   );
+  // Records also covers people who have since been deactivated.
+  const recordIds = useMemo(() => {
+    if (!hasFilters(filters)) return null;
+    return filterPeople({ employees: everyone, profiles, departments, ...filters }).map((e) => e.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [everyone, profiles, departments, employeeIds, teamIds, approverIds, readOnly]);
 
-  const rows = useMemo(() => (rangeValid ? (report.data ?? []) : []), [rangeValid, report.data]);
+  const employeeOptions = useMemo(
+    () => everyone.map((e) => ({ value: e.id, label: fullName(e) + (e.is_active ? '' : ' (inactive)') })).sort((a, b) => a.label.localeCompare(b.label)),
+    [everyone],
+  );
+  const teamOptions = useMemo(
+    () => [...departments.map((d) => ({ value: d.id, label: d.name })), { value: NO_TEAM, label: 'CEOs and developers (no department)' }],
+    [departments],
+  );
+  const approvers = useMemo(() => approverOptions(everyone, departments), [everyone, departments]);
+  const typeOptions = CATEGORIES.map((c) => ({ value: c.id, label: c.label }));
 
-  const totals = useMemo(() => {
-    const minutes = rows.reduce((sum, r) => sum + (r.worked_minutes ?? 0), 0);
-    const people = new Set(rows.map((r) => r.employee_id ?? r.employee_name));
-    return { minutes, people: people.size, open: rows.filter((r) => !r.clock_out).length };
-  }, [rows]);
+  const activeCount = [employeeIds, readOnly ? [] : teamIds, readOnly ? [] : approverIds, view === 'records' ? [] : leaveTypes].filter((a) => a.length).length + (view === 'leaves' && status ? 1 : 0);
 
-  const label = (r) => (r.employee_id ? r.employee_name : `${r.employee_name ?? 'Unknown'} (deleted)`);
-  const emp = (r) => employeesById.get(r.employee_id);
-  const yesNo = (v) => (v ? 'yes' : 'no');
-  // Department name, or "CEO" / "Developer" for people who have none.
-  const groupOf = (r) => {
-    const e = emp(r);
-    const dept = deptName(e?.department_id);
-    if (dept) return dept;
-    return e && e.role !== 'employee' ? ACCOUNT_LABEL[e.role] ?? '' : '';
-  };
-  // A CEO can read a developer's records but only a developer can change them.
-  const canEdit = (r) => isDeveloper || emp(r)?.role !== 'developer';
-
-  function exportCsv() {
-    const csv = toCsv(rows, [
-      { label: 'Date', get: (r) => r.work_date },
-      { label: 'Employee #', get: (r) => r.employee_number },
-      { label: 'Employee', get: label },
-      { label: 'Department', get: (r) => deptName(emp(r)?.department_id) },
-      { label: 'Job role', get: (r) => roleName(emp(r)?.job_role_id) },
-      { label: 'Clock in', get: (r) => formatTime(r.clock_in, timezone) },
-      { label: 'Clock out', get: (r) => (r.clock_out ? formatTime(r.clock_out, timezone) : '') },
-      { label: 'Worked (minutes)', get: (r) => r.worked_minutes },
-      { label: 'Worked (h:mm)', get: (r) => (r.worked_minutes == null ? '' : formatWorked(r.worked_minutes)) },
-      { label: 'Clock-out type', get: (r) => r.clockout_type },
-      { label: 'Biometric at clock-in', get: (r) => yesNo(r.clock_in_biometric) },
-      { label: 'Biometric at clock-out', get: (r) => (r.clock_out ? yesNo(r.clock_out_biometric) : '') },
-      { label: 'Account type', get: (r) => ACCOUNT_LABEL[emp(r)?.role] ?? '' },
-    ]);
-    downloadCsv(`attendance_${from}_to_${to}.csv`, csv);
+  function reset() {
+    setEmployeeIds([]);
+    setTeamIds([]);
+    setApproverIds([]);
+    setLeaveTypes([]);
+    setStatus('');
   }
 
-  const headers = ['Date', 'Employee', 'Department', 'Clock In', 'Clock Out', 'Worked', 'Type', ...(readOnly ? [] : [''])];
+  const step = (direction) => setRange((r) => (r.from && r.to && r.from <= r.to ? shiftRange(r.from, r.to, direction) : r));
 
   return (
     <>
-      <SectionCard
-        icon={FileText}
-        eyebrow="Reports"
-        title={readOnly ? 'Department Report' : 'Attendance Report'}
-        action={
-          <div className="la-toolbar">
-            {!readOnly && (
-              <PillButton variant="secondary" size="sm" icon={Plus} onClick={() => setEditor({ record: null })}>
-                Add record
-              </PillButton>
-            )}
-            <PillButton size="sm" icon={Download} onClick={exportCsv} disabled={rows.length === 0}>
-              Export CSV
-            </PillButton>
-          </div>
-        }
-      >
-        <div className="la-toolbar">
-          <Field label="From" id="rep-from">
-            <input id="rep-from" type="date" className="la-input compact" value={from} max={to} onChange={(e) => setFrom(e.target.value)} />
+      <section className="la-card la-report-bar" aria-label="Report filters">
+        <div className="la-seg" role="group" aria-label="Report">
+          {VIEWS.map((v) => (
+            <button key={v.id} type="button" aria-pressed={view === v.id} onClick={() => setView(v.id)}>
+              {v.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="la-toolbar la-range">
+          <PillButton variant="secondary" size="sm" icon={ChevronLeft} onClick={() => step(-1)} aria-label="Previous period" />
+          <Field label="From" id="rp-from">
+            <input id="rp-from" type="date" className="la-input compact" value={range.from} onChange={(e) => setRange((r) => ({ ...r, from: e.target.value }))} />
           </Field>
-          <Field label="To" id="rep-to">
-            <input id="rep-to" type="date" className="la-input compact" value={to} min={from} onChange={(e) => setTo(e.target.value)} />
+          <Field label="To" id="rp-to">
+            <input id="rp-to" type="date" className="la-input compact" value={range.to} onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))} />
           </Field>
-          {!readOnly && (
-            <Field label="Department" id="rep-dept">
-              <select
-                id="rep-dept"
-                className="la-input compact"
-                value={departmentId}
-                onChange={(e) => {
-                  setDepartmentId(e.target.value);
-                  setEmployeeId('');
-                }}
-              >
-                <option value="">All departments</option>
-                <option value={NO_DEPT}>CEOs and developers (no department)</option>
-                {directory.departments.map((d) => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
-                ))}
-              </select>
-            </Field>
-          )}
-          <Field label="Employee" id="rep-emp">
-            <select id="rep-emp" className="la-input compact" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
-              <option value="">{readOnly ? 'Everyone in my department' : 'All employees'}</option>
-              {pickable.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.employee_number} – {e.first_name} {e.last_name}
-                  {e.is_active ? '' : ' (inactive)'}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <PillButton
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setFrom(monthStartInTz(timezone));
-              setTo(today);
-            }}
-          >
+          <PillButton variant="secondary" size="sm" icon={ChevronRight} onClick={() => step(1)} aria-label="Next period" />
+          <PillButton variant="secondary" size="sm" onClick={() => setRange({ from: monthStart, to: monthEnd(monthStart) })}>
             This month
           </PillButton>
-          <PillButton
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setFrom(shiftDays(today, -29));
-              setTo(today);
-            }}
-          >
-            Last 30 days
+          <PillButton variant="secondary" size="sm" icon={Filter} onClick={() => setShowFilters((v) => !v)} aria-expanded={showFilters}>
+            Filter{activeCount ? ` (${activeCount})` : ''}
           </PillButton>
         </div>
 
-        {!rangeValid && <Alert error>"From" must be on or before "To".</Alert>}
-        {report.error && <Alert error>{report.error}</Alert>}
-
-        {rangeValid && (
-          <div className="la-summary">
-            <span><strong>{rows.length}</strong>records</span>
-            <span><strong>{totals.people}</strong>employees</span>
-            <span><strong>{formatWorked(totals.minutes)}</strong>total worked</span>
-            {totals.open > 0 && <span><strong>{totals.open}</strong>still open</span>}
+        {showFilters && (
+          <div className="la-toolbar la-filters">
+            <MultiSelect label="Employees" options={employeeOptions} value={employeeIds} onChange={setEmployeeIds} allLabel="All employees" />
+            {!readOnly && <MultiSelect label="Teams" options={teamOptions} value={teamIds} onChange={setTeamIds} allLabel="All teams" />}
+            {!readOnly && <MultiSelect label="Approvers" options={approvers} value={approverIds} onChange={setApproverIds} allLabel="All approvers" />}
+            {view !== 'records' && <MultiSelect label="Leave types" options={typeOptions} value={leaveTypes} onChange={setLeaveTypes} allLabel="All types" />}
+            {view === 'leaves' && (
+              <Field label="Status" id="rp-status">
+                <select id="rp-status" className="la-input compact" value={status} onChange={(e) => setStatus(e.target.value)}>
+                  <option value="">All</option>
+                  {Object.entries(STATUS_LABELS).map(([id, label]) => (
+                    <option key={id} value={id}>{label}</option>
+                  ))}
+                </select>
+              </Field>
+            )}
+            {activeCount > 0 && (
+              <PillButton variant="secondary" size="sm" icon={X} onClick={reset}>
+                Clear filters
+              </PillButton>
+            )}
           </div>
         )}
+      </section>
 
-        {report.loading && !report.data ? (
-          <Message>Loading report…</Message>
-        ) : rangeValid && rows.length === 0 ? (
-          <Message>No attendance records in this period.</Message>
-        ) : (
-          rangeValid && (
-            <DataTable headers={headers} minWidth={820}>
-              {rows.map((r) => {
-                const e = emp(r);
-                const role = roleName(e?.job_role_id);
-                return (
-                  <tr key={r.id}>
-                    <td className="la-td">{formatDate(r.work_date)}</td>
-                    <td className="la-td">
-                      {r.employee_number ? `${r.employee_number} · ` : ''}
-                      {label(r)}
-                    </td>
-                    <td className="la-td">
-                      {groupOf(r) || '-'}
-                      {role ? ` · ${role}` : ''}
-                    </td>
-                    <td className="la-td">{formatTime(r.clock_in, timezone)}</td>
-                    <td className="la-td">{r.clock_out ? formatTime(r.clock_out, timezone) : <Pill tone="ok">Working</Pill>}</td>
-                    <td className="la-td">{formatWorked(r.worked_minutes)}</td>
-                    <td className="la-td">{r.clockout_type ? (r.clockout_type === 'automatic' ? <Pill tone="warn">Auto</Pill> : 'Manual') : '-'}</td>
-                    {!readOnly && (
-                      <td className="la-td">
-                        {canEdit(r) ? (
-                          <PillButton variant="ghost" size="sm" icon={Pencil} onClick={() => setEditor({ record: r })}>
-                            Edit
-                          </PillButton>
-                        ) : (
-                          <span className="la-protected">Protected</span>
-                        )}
-                      </td>
-                    )}
-                  </tr>
-                );
-              })}
-            </DataTable>
-          )
-        )}
-      </SectionCard>
-
-      {!readOnly && editor && (
-        <AttendanceEditor
-          record={editor.record}
-          employees={isDeveloper ? directory.employees : directory.employees.filter((e) => e.role !== 'developer')}
-          timezone={timezone}
-          workStart={settings.work_start_time}
-          onClose={() => setEditor(null)}
-          onSaved={() => {
-            setEditor(null);
-            report.reload();
-          }}
-        />
-      )}
+      {view === 'timesheet' && <Timesheet people={people} everyone={active.length} range={range} leaveTypes={leaveTypes} profiles={profiles} />}
+      {view === 'records' && <RecordsReport directory={directory} readOnly={readOnly} from={range.from} to={range.to} employeeIds={recordIds} />}
+      {view === 'leaves' && <LeavesReport people={people} range={range} leaveTypes={leaveTypes} status={status} />}
     </>
   );
 }

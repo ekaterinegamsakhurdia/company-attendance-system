@@ -328,6 +328,151 @@ export async function fetchAuditLogs({ limit = 50, offset = 0 } = {}) {
   );
 }
 
+/* ---------- leaves, holidays, birthdays ---------- */
+
+export async function listHolidays({ from, to } = {}) {
+  let query = supabase.from('public_holidays').select('id, holiday_date, name, is_official').order('holiday_date');
+  if (from) query = query.gte('holiday_date', from);
+  if (to) query = query.lte('holiday_date', to);
+  return unwrap(await query) ?? [];
+}
+
+export async function addHoliday({ date, name }) {
+  const { data, error } = await supabase
+    .from('public_holidays')
+    .insert({ holiday_date: date, name: name.trim(), is_official: false })
+    .select()
+    .single();
+  if (error) {
+    throw new Error(/duplicate|unique/i.test(error.message) ? 'That holiday is already in the list.' : error.message);
+  }
+  return data;
+}
+
+export async function updateHoliday(id, { date, name }) {
+  const { data, error } = await supabase
+    .from('public_holidays')
+    .update({ holiday_date: date, name: name.trim() })
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) {
+    throw new Error(/duplicate|unique/i.test(error.message) ? 'That holiday is already in the list.' : error.message);
+  }
+  return data;
+}
+
+export async function deleteHoliday(id) {
+  unwrap(await supabase.from('public_holidays').delete().eq('id', id));
+}
+
+/** Adds the Georgian public holidays for a year; returns how many were new. */
+export async function addGeorgianHolidays(year) {
+  return unwrap(await supabase.rpc('add_georgian_holidays', { p_year: year }));
+}
+
+/** { approvers: [{id,name,kind}], replacements: [{id,name}], replacement_required } */
+export async function fetchLeaveOptions() {
+  return unwrap(await supabase.rpc('leave_form_options'));
+}
+
+export async function requestLeave({ category, start, end, comment, approverId, replacementId }) {
+  return unwrap(
+    await supabase.rpc('request_leave', {
+      p_category: category,
+      p_start: start,
+      p_end: end,
+      p_comment: comment?.trim() || null,
+      p_approver_id: approverId,
+      p_replacement_id: replacementId || null,
+    }),
+  );
+}
+
+export async function decideLeave(leaveId, decision, comment) {
+  return unwrap(
+    await supabase.rpc('decide_leave', { p_leave_id: leaveId, p_decision: decision, p_comment: comment?.trim() || null }),
+  );
+}
+
+export async function cancelLeave(leaveId, reason) {
+  return unwrap(await supabase.rpc('cancel_leave', { p_leave_id: leaveId, p_reason: reason?.trim() || null }));
+}
+
+/** scope 'mine' = my own leaves; 'managed' = everyone's (CEO / developer) or my department's (head). */
+export async function listLeaves(scope, { from = null, to = null, status = null, employeeId = null } = {}) {
+  return (
+    unwrap(
+      await supabase.rpc('list_leaves', { p_scope: scope, p_from: from, p_to: to, p_status: status, p_employee_id: employeeId }),
+    ) ?? []
+  );
+}
+
+export async function fetchLeaveBalance(employeeId, year) {
+  return unwrap(await supabase.rpc('leave_balance', { p_employee_id: employeeId, p_year: year })) ?? [];
+}
+
+export async function fetchAllBalances(year) {
+  return unwrap(await supabase.rpc('leave_balances_all', { p_year: year })) ?? [];
+}
+
+/** Profile details (dates, office, country, hours, approver): your own, or everyone's for a CEO / developer. */
+export async function listProfiles() {
+  return (
+    unwrap(await supabase.from('employee_profiles').select('employee_id, birth_date, hire_date, office, country, daily_hours, approver_id')) ?? []
+  );
+}
+
+/** Saves all profile fields of one person (CEO / developer). Empty values clear the field. */
+export async function setEmployeeProfile(employeeId, f) {
+  const hours = f.dailyHours === '' || f.dailyHours === null || f.dailyHours === undefined ? null : Number(f.dailyHours);
+  unwrap(
+    await supabase.rpc('set_employee_profile', {
+      p_employee_id: employeeId,
+      p_birth_date: f.birthDate || null,
+      p_hire_date: f.hireDate || null,
+      p_office: f.office?.trim() || null,
+      p_country: f.country?.trim() || null,
+      p_daily_hours: hours,
+      p_approver_id: f.approverId || null,
+    }),
+  );
+}
+
+/** days = null removes the override, so the company default applies again. */
+export async function setLeaveAllowance(employeeId, year, category, days) {
+  unwrap(
+    await supabase.rpc('set_leave_allowance', {
+      p_employee_id: employeeId,
+      p_year: year,
+      p_category: category,
+      p_days: days === '' || days === undefined ? null : days,
+    }),
+  );
+}
+
+/** Developer only: create (id = null) or change any leave, whatever its status. */
+export async function devSaveLeave(f) {
+  return unwrap(
+    await supabase.rpc('dev_save_leave', {
+      p_leave_id: f.id ?? null,
+      p_employee_id: f.employeeId,
+      p_category: f.category,
+      p_start: f.start,
+      p_end: f.end,
+      p_comment: f.comment ?? null,
+      p_approver_id: f.approverId || null,
+      p_replacement_id: f.replacementId || null,
+      p_status: f.status,
+      p_decision_comment: f.decisionComment ?? null,
+    }),
+  );
+}
+
+export async function devDeleteLeave(leaveId) {
+  unwrap(await supabase.rpc('dev_delete_leave', { p_leave_id: leaveId }));
+}
+
 /* ---------- auth ---------- */
 
 export async function signIn(email, password) {

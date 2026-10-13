@@ -173,3 +173,17 @@ export function Hero({ eyebrow, subtitle }) {
     </div>
   );
 }
+
+/** Tab text with an optional "N waiting" badge. */
+export function TabLabel({ text, count = 0 }) {
+  return (
+    <>
+      {text}
+      {count > 0 && (
+        <span className="la-badge-count" aria-label={`${count} waiting`}>
+          {count}
+        </span>
+      )}
+    </>
+  );
+}

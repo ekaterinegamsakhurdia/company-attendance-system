@@ -1,23 +1,28 @@
 import { useState } from 'react';
-import { Fingerprint, Mail, Pencil, Trash2, UserPlus, Users } from 'lucide-react';
+import { CalendarDays, Fingerprint, Mail, Pencil, Trash2, UserPlus, Users } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useLoad } from '../../hooks/useLoad';
 import { useToast } from '../../components/Toast';
 import { ConfirmDialog, Modal } from '../../components/Modal';
+import EmployeeDetailsModal from '../../components/EmployeeDetailsModal';
+import PersonLink from '../../components/PersonLink';
 import { Alert, DataTable, Field, Message, Pill, PillButton, SectionCard } from '../../components/ui';
 import {
   changeEmail,
   deleteEmployee,
   inviteEmployee,
   listDevices,
+  listProfiles,
   removeDevice,
   resendInvite,
   setEmployeeAccountType,
+  setEmployeeProfile,
   setEmployeeDepartment,
   setEmployeeJobRole,
   updateEmployee,
 } from '../../services/api';
-import { formatDateTime } from '../../lib/time';
+import { formatDateTime, todayInTz } from '../../lib/time';
+import { companyHours } from '../../lib/timesheet';
 
 const EMPTY = {
   role: 'employee',
@@ -27,6 +32,8 @@ const EMPTY = {
   email: '',
   departmentId: '',
   jobRoleId: '',
+  birthDate: '',
+  hireDate: '',
 };
 
 const ACCOUNT_TYPES = [
@@ -269,6 +276,9 @@ export default function EmployeesTab({ directory }) {
   const toast = useToast();
   const { employees, departments, jobRoles, reloadEmployees, reloadDepartments } = directory;
   const devices = useLoad(() => listDevices());
+  const profiles = useLoad(listProfiles);
+  const today = todayInTz(timezone);
+  const profileOf = (id) => (profiles.data ?? []).find((p) => p.employee_id === id);
 
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY);
@@ -278,6 +288,7 @@ export default function EmployeesTab({ directory }) {
   const [toDelete, setToDelete] = useState(null);
   const [devicesFor, setDevicesFor] = useState(null);
   const [editing, setEditing] = useState(null);
+  const [datesFor, setDatesFor] = useState(null);
   const [moving, setMoving] = useState(null); // { emp, departmentId }
   const [typeChange, setTypeChange] = useState(null); // { emp, role }
   const [filter, setFilter] = useState('all');
@@ -311,6 +322,14 @@ export default function EmployeesTab({ directory }) {
         jobRoleId: standaloneForm ? null : form.jobRoleId || null,
       });
       toast.success(res.message);
+      if (form.birthDate || form.hireDate) {
+        try {
+          await setEmployeeProfile(res.employeeId, { birthDate: form.birthDate, hireDate: form.hireDate, office: '', country: '', dailyHours: '', approverId: '' });
+          profiles.reload();
+        } catch (err) {
+          toast.error(`The account was created, but the dates were not saved: ${err.message}`);
+        }
+      }
       setForm(EMPTY);
       setShowForm(false);
       reloadEmployees();
@@ -477,6 +496,12 @@ export default function EmployeesTab({ directory }) {
                   </select>
                 </Field>
               )}
+              <Field label="Date of birth (optional)" id="new-birth">
+                <input id="new-birth" type="date" className="la-input" value={form.birthDate} max={today} onChange={set('birthDate')} />
+              </Field>
+              <Field label="Start date (optional)" id="new-hire" hint="Used for work anniversaries.">
+                <input id="new-hire" type="date" className="la-input" value={form.hireDate} onChange={set('hireDate')} />
+              </Field>
             </div>
             {!standaloneForm && form.departmentId && formRoles.length === 0 && (
               <p className="la-meta">This department has no job roles yet{isDeveloper ? '. You can add some under Structure.' : ', so none is needed.'}</p>
@@ -520,7 +545,7 @@ export default function EmployeesTab({ directory }) {
               <tr key={emp.id}>
                 <td className="la-td">{emp.employee_number}</td>
                 <td className="la-td">
-                  {emp.first_name} {emp.last_name} {head && <Pill tone="ok">Head</Pill>}{' '}
+                  <PersonLink id={emp.id}>{emp.first_name} {emp.last_name}</PersonLink> {head && <Pill tone="ok">Head</Pill>}{' '}
                   {emp.role === 'ceo' && <Pill>CEO</Pill>} {emp.role === 'developer' && <Pill tone="warn">Developer</Pill>}
                 </td>
                 <td className="la-td">{emp.email || '-'}</td>
@@ -604,6 +629,9 @@ export default function EmployeesTab({ directory }) {
                           </PillButton>
                         </>
                       )}
+                      <PillButton variant="secondary" size="sm" icon={CalendarDays} onClick={() => setDatesFor(emp)} disabled={busy}>
+                        Details
+                      </PillButton>
                       {emp.is_active && !isSelf && (
                         <PillButton variant="secondary" size="sm" icon={Mail} onClick={() => handleResend(emp)} disabled={busy}>
                           Resend invite
@@ -644,6 +672,18 @@ export default function EmployeesTab({ directory }) {
         />
       )}
 
+      {datesFor && (
+        <EmployeeDetailsModal
+          employee={datesFor}
+          profile={profileOf(datesFor.id)}
+          directory={{ employees, departments }}
+          today={today}
+          defaultHours={companyHours(settings.work_start_time, settings.work_end_time)}
+          onClose={() => setDatesFor(null)}
+          onSaved={profiles.reload}
+        />
+      )}
+
       {editing && (
         <EditEmployeeModal
           employee={editing}
@@ -654,6 +694,7 @@ export default function EmployeesTab({ directory }) {
           onSaved={() => {
             reloadEmployees();
             reloadDepartments();
+            profiles.reload();
           }}
         />
       )}
