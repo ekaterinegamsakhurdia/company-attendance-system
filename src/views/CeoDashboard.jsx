@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { BarChart3, CalendarCheck, CalendarDays, CalendarPlus, Cake, Clock, FileText, Plane, ScrollText, Settings, Users, Palmtree } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useLoad } from '../hooks/useLoad';
 import { listDepartments, listEmployees, listJobRoles } from '../services/api';
@@ -20,19 +21,21 @@ import ToApprove from './ToApprove';
 import ProfileCardProvider from '../components/ProfileCard';
 
 const TABS = [
-  { id: 'today', label: 'Today' },
-  { id: 'approve', label: 'To approve' },
-  { id: 'leaves', label: 'Leaves' },
-  { id: 'calendar', label: 'Calendar' },
-  { id: 'reports', label: 'Reports' },
-  { id: 'analytics', label: 'Analytics' },
-  { id: 'celebrations', label: 'Birthdays & Anniversaries' },
-  { id: 'employees', label: 'Employees' },
-  { id: 'book', label: 'Book time off' },
-  { id: 'myleaves', label: 'My leaves' },
-  { id: 'settings', label: 'Settings' },
-  { id: 'audit', label: 'Audit Log' },
+  { id: 'today', label: 'Today', icon: Clock },
+  { id: 'approve', label: 'To approve', icon: CalendarCheck },
+  { id: 'leaves', label: 'Leaves', icon: Palmtree },
+  { id: 'calendar', label: 'Calendar', icon: CalendarDays },
+  { id: 'reports', label: 'Reports', icon: FileText },
+  { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+  { id: 'celebrations', label: 'Birthdays & Anniversaries', icon: Cake },
+  { id: 'employees', label: 'Employees', icon: Users },
+  { id: 'book', label: 'Book time off', icon: CalendarPlus },
+  { id: 'myleaves', label: 'My leaves', icon: Plane },
+  { id: 'settings', label: 'Settings', icon: Settings },
+  { id: 'audit', label: 'Audit Log', icon: ScrollText },
 ];
+
+const longDate = () => new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
 export default function CeoDashboard() {
   const { employee, signOut } = useAuth();
@@ -57,13 +60,13 @@ export default function CeoDashboard() {
 
   return (
     <ProfileCardProvider directory={directory}>
-    <Shell wide onLogout={signOut}>
-      <Hero eyebrow="CEO Dashboard" subtitle={`Welcome, ${employee.first_name}.`} />
+    <Shell wide onLogout={signOut} user={employee} roleLabel="CEO">
+      <Hero eyebrow="CEO Dashboard" title={`Welcome, ${employee.first_name}.`} subtitle={longDate()} />
 
       <Tabs tabs={TABS.map((t) => (t.id === 'approve' ? { ...t, label: <TabLabel text="To approve" count={waiting} /> } : t))} value={tab} onChange={setTab} />
       {loadError && <Alert error>{loadError}</Alert>}
 
-      <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} className="la-stack" style={{ gap: 24 }}>
+      <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} className="la-stack la-panel" key={tab}>
         {tab === 'today' && <TodayTab directory={directory} />}
         {tab === 'approve' && <ToApprove pending={pending} />}
         {tab === 'leaves' && <LeavesTab pending={pending} directory={directory} />}

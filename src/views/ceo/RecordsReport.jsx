@@ -83,7 +83,7 @@ export default function RecordsReport({ directory, readOnly = false, from, to, e
     <>
       <SectionCard
         icon={FileText}
-        eyebrow="Reports"
+       
         title="Attendance records"
         action={
           <div className="la-toolbar">

@@ -59,7 +59,7 @@ export default function ToApprove({ pending, onChanged }) {
 
   return (
     <>
-      <SectionCard icon={CalendarCheck} eyebrow="Approvals" title="Leaves to approve">
+      <SectionCard icon={CalendarCheck} title="Leaves to approve">
         {pending.error && <Alert error>{pending.error}</Alert>}
         {pending.loading && !pending.data ? (
           <Message>Loading…</Message>

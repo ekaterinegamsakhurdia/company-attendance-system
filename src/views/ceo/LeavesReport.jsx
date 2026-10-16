@@ -47,7 +47,7 @@ export default function LeavesReport({ people, range, leaveTypes, status }) {
   return (
     <SectionCard
       icon={CalendarCheck}
-      eyebrow="Reports"
+     
       title="Leaves"
       action={
         <PillButton size="sm" icon={Download} onClick={exportCsv} disabled={rows.length === 0}>

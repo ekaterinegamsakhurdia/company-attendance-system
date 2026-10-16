@@ -63,7 +63,7 @@ export default function AnalyticsTab({ directory }) {
 
   return (
     <>
-      <SectionCard icon={BarChart3} eyebrow="Company" title="Analytics">
+      <SectionCard icon={BarChart3} title="Analytics">
         {profiles.error && <Alert error>{profiles.error}</Alert>}
         <div className="la-grid stats">
           <StatTile value={team.total} label="Team count" />
@@ -88,7 +88,7 @@ export default function AnalyticsTab({ directory }) {
 
       <SectionCard
         icon={BarChart3}
-        eyebrow="Leaves"
+       
         title="Used & remaining days"
         action={
           <PillButton variant="secondary" size="sm" icon={Download} onClick={exportCsv} disabled={rows.length === 0}>

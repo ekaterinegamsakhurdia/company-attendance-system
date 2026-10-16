@@ -87,7 +87,7 @@ export function DevicesCard({ devices, loading, timezone, onChanged, onRegister 
   return (
     <SectionCard
       icon={Fingerprint}
-      eyebrow="Security"
+     
       title="My Devices"
       action={
         <PillButton variant="secondary" size="sm" icon={Plus} onClick={onRegister}>

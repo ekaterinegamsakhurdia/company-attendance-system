@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { KeyRound } from 'lucide-react';
 import { supabase } from '../services/supabase';
-import { Alert, Hero, SectionCard, Shell } from '../components/ui';
+import { Alert, AuthLayout, SectionCard } from '../components/ui';
 import { authLink } from '../lib/authLink';
 
 const MIN_LENGTH = 8;
@@ -86,8 +86,7 @@ export default function SetPassword() {
   }
 
   return (
-    <Shell>
-      <Hero subtitle="Employee Attendance System" />
+    <AuthLayout subtitle="Employee Attendance System">
 
       {state === 'checking' && (
         <section className="la-card">
@@ -98,7 +97,7 @@ export default function SetPassword() {
       )}
 
       {state === 'confirm' && (
-        <SectionCard icon={KeyRound} eyebrow="Account setup" title={authLink.type === 'recovery' ? 'Reset your password' : 'Welcome'}>
+        <SectionCard icon={KeyRound} title={authLink.type === 'recovery' ? 'Reset your password' : 'Welcome'}>
           <p className="la-hint">
             {authLink.type === 'recovery' ? 'Press the button to choose a new password.' : 'Press the button to create your password and finish setting up your account.'}
           </p>
@@ -110,7 +109,7 @@ export default function SetPassword() {
       )}
 
       {state === 'invalid' && (
-        <SectionCard icon={KeyRound} eyebrow="Account setup" title="Link problem">
+        <SectionCard icon={KeyRound} title="Link problem">
           <Alert error>
             {error || 'This link is invalid or has expired.'} Please ask your CEO to send a new invitation, or use
             "Forgot your password?" on the login page.
@@ -122,7 +121,7 @@ export default function SetPassword() {
       )}
 
       {state === 'ready' && (
-        <SectionCard icon={KeyRound} eyebrow="Account setup" title="Create Your Password">
+        <SectionCard icon={KeyRound} title="Create Your Password">
           <form onSubmit={handleSubmit}>
             <label className="la-label" htmlFor="new-password">
               New Password
@@ -160,10 +159,10 @@ export default function SetPassword() {
       )}
 
       {state === 'done' && (
-        <SectionCard icon={KeyRound} eyebrow="Account setup" title="All set">
+        <SectionCard icon={KeyRound} title="All set">
           <Alert success>Your password has been saved. Taking you to the app…</Alert>
         </SectionCard>
       )}
-    </Shell>
+    </AuthLayout>
   );
 }

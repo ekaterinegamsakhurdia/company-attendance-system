@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { LogIn } from 'lucide-react';
-import { Alert, Hero, SectionCard, Shell } from '../components/ui';
+import { Alert, AuthLayout, SectionCard } from '../components/ui';
 import { requestPasswordReset, signIn } from '../services/api';
 
 export default function Login() {
@@ -34,11 +34,10 @@ export default function Login() {
   const isLogin = mode === 'login';
 
   return (
-    <Shell>
-      <Hero subtitle="Employee Attendance System" />
+    <AuthLayout subtitle="Employee Attendance System">
       <SectionCard
         icon={LogIn}
-        eyebrow="Employee Attendance System"
+        eyebrow={isLogin ? 'Sign in with your work email.' : 'We will email you a link to set a new password.'}
         title={isLogin ? 'Employee Login' : 'Reset Password'}
       >
         <form onSubmit={handleSubmit}>
@@ -96,6 +95,6 @@ export default function Login() {
         {error && <Alert error>{error}</Alert>}
         {notice && <Alert success>{notice}</Alert>}
       </SectionCard>
-    </Shell>
+    </AuthLayout>
   );
 }

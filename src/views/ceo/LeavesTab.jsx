@@ -127,7 +127,7 @@ export default function LeavesTab({ pending, directory }) {
     <>
       <SectionCard
         icon={ClipboardList}
-        eyebrow="Leaves"
+       
         title="All requests"
         action={
           isDeveloper ? (

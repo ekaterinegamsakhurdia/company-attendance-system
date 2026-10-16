@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshCw, ScrollText } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { fetchAuditLogs } from '../../services/api';
-import { Alert, DataTable, Message, PillButton, SectionCard } from '../../components/ui';
+import { Alert, DataTable, Field, Message, Pill, PillButton, SectionCard } from '../../components/ui';
+import { AUDIT_FILTERS, isImportantAction } from '../../lib/audit';
 import { formatDateTime } from '../../lib/time';
 
 const PAGE = 50;
@@ -51,7 +52,9 @@ const ACTION_LABELS = {
 };
 
 export default function AuditTab({ directory }) {
-  const { timezone } = useAuth();
+  const { timezone, employee: me } = useAuth();
+  const isDeveloper = me.role === 'developer';
+  const [filter, setFilter] = useState('all');
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -78,30 +81,52 @@ export default function AuditTab({ directory }) {
   const byAuthId = new Map(directory.employees.filter((e) => e.auth_user_id).map((e) => [e.auth_user_id, e]));
   const byId = new Map(directory.employees.map((e) => [e.id, e]));
   const personName = (e) => (e ? `${e.first_name} ${e.last_name}` : null);
+  const actorIsDeveloper = (log) => byAuthId.get(log.actor_user_id)?.role === 'developer';
+
+  // CEOs only ever receive the important entries (the database enforces it); the developer can narrow the full list.
+  const shown = useMemo(() => {
+    const test = AUDIT_FILTERS.find((f) => f.id === filter)?.test ?? (() => true);
+    return isDeveloper ? rows.filter((l) => test(l, { actorIsDeveloper: actorIsDeveloper(l) })) : rows;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, filter, isDeveloper, directory.employees]);
 
   return (
     <SectionCard
       icon={ScrollText}
-      eyebrow="Accountability"
-      title="Audit Log"
+      title={isDeveloper ? 'Audit Log' : 'Important changes'}
       action={
         <PillButton variant="secondary" size="sm" icon={RefreshCw} onClick={() => load(0)} disabled={loading}>
           Refresh
         </PillButton>
       }
     >
+      {!isDeveloper && (
+        <p className="la-hint">People added or removed, account, department and job-role changes, networks, company settings, attendance corrections and cancelled leaves. Routine activity is not listed here.</p>
+      )}
+      {isDeveloper && (
+        <div className="la-toolbar">
+          <Field label="Show" id="audit-filter">
+            <select id="audit-filter" className="la-input compact" value={filter} onChange={(e) => setFilter(e.target.value)}>
+              {AUDIT_FILTERS.map((f) => (
+                <option key={f.id} value={f.id}>{f.label}</option>
+              ))}
+            </select>
+          </Field>
+          <span className="la-meta">{shown.length} of {rows.length} loaded entries</span>
+        </div>
+      )}
       {error && <Alert error>{error}</Alert>}
-      {rows.length === 0 && !loading && !error ? (
-        <Message>Nothing has been logged yet.</Message>
+      {shown.length === 0 && !loading && !error ? (
+        <Message>{rows.length === 0 ? (isDeveloper ? 'Nothing has been logged yet.' : 'No important changes have been logged yet.') : 'Nothing matches this filter.'}</Message>
       ) : (
         <DataTable headers={['When', 'Action', 'By', 'Employee', 'Details']} minWidth={820}>
-          {rows.map((log) => {
-            const actor = log.actor_user_id ? personName(byAuthId.get(log.actor_user_id)) ?? 'Developer / removed user' : 'System';
+          {shown.map((log) => {
+            const actor = log.actor_user_id ? personName(byAuthId.get(log.actor_user_id)) ?? 'Removed user' : 'System';
             const subject = personName(byId.get(log.employee_id)) ?? log.metadata?.name ?? log.metadata?.employee_name ?? '-';
             return (
               <tr key={log.id}>
                 <td className="la-td">{formatDateTime(log.created_at, timezone)}</td>
-                <td className="la-td">{ACTION_LABELS[log.action] ?? log.action}</td>
+                <td className="la-td">{ACTION_LABELS[log.action] ?? log.action}{isDeveloper && isImportantAction(log.action) && <> <Pill tone="warn">Important</Pill></>}</td>
                 <td className="la-td">{actor}</td>
                 <td className="la-td">{subject}</td>
                 <td className="la-td wrap">

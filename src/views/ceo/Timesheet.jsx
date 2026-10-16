@@ -84,7 +84,7 @@ export default function Timesheet({ people, range, leaveTypes, profiles, everyon
   return (
     <SectionCard
       icon={Table2}
-      eyebrow="Reports"
+     
       title="Timesheet"
       action={
         <div className="la-toolbar">

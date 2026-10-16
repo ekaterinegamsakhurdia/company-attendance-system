@@ -1,6 +1,6 @@
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { ToastProvider } from './components/Toast';
-import { Alert, Hero, PillButton, Shell } from './components/ui';
+import { Alert, Hero, Message, PillButton, Shell } from './components/ui';
 import Login from './views/Login';
 import SetPassword from './views/SetPassword';
 import EmployeeDashboard from './views/EmployeeDashboard';
@@ -13,10 +13,12 @@ function Gate() {
 
   if (loading) {
     return (
-      <Shell>
-        <section className="la-card">
-          <div className="la-message" role="status">Loading…</div>
-        </section>
+      <Shell bare>
+        <div className="la-auth">
+          <section className="la-card">
+            <Message>Loading…</Message>
+          </section>
+        </div>
       </Shell>
     );
   }

@@ -217,12 +217,18 @@ do $$ declare n public.allowed_networks; begin
   delete from public.allowed_networks where label='Dev VPN';
 end $$;
 
--- the developer account can be seen by no CEO query, but the CEO still sees the audit trail of what it did
+-- what the developer did is not shown to a CEO (migration 7); the developer sees all of it
 reset role;
 select pg_temp.as_user(:ceo);
 set role authenticated;
 do $$ begin
-  if (select count(*) from public.audit_logs where action in ('employee.role','employee.update')) < 3 then raise exception 'CEO cannot see developer audit'; end if;
+  if (select count(*) from public.audit_logs where action in ('employee.role','employee.update')) <> 0 then raise exception 'CEO sees the developer audit trail'; end if;
+end $$;
+reset role;
+select pg_temp.as_user(:dev);
+set role authenticated;
+do $$ begin
+  if (select count(*) from public.audit_logs where action in ('employee.role','employee.update')) < 3 then raise exception 'developer cannot see its own audit trail'; end if;
 end $$;
 reset role;
 

@@ -263,8 +263,13 @@ set role authenticated;
 do $$ begin
   if (select count(*) from public.webauthn_credentials) <> 1 then raise exception 'ceo sees devices'; end if;
   perform public.remove_webauthn_credential('20000000-0000-0000-0000-0000000000d1');   -- CEO may remove anyone's
+  if (select count(*) from public.audit_logs where action='webauthn.remove') <> 0 then raise exception 'device removals are routine, not shown to a CEO'; end if;
+end $$;
+reset role;
+do $$ begin
   if (select count(*) from public.audit_logs where action='webauthn.remove') <> 2 then raise exception 'device removal audit'; end if;
 end $$;
+set role authenticated;
 
 -- ===== G. settings accessor exposes the flags to everyone signed in =====
 reset role;

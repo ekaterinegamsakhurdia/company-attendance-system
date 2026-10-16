@@ -202,7 +202,7 @@ function SecurityCard() {
 
   return (
     <>
-      <SectionCard icon={ShieldCheck} eyebrow="Clock-in rules" title="Clock-in Security">
+      <SectionCard icon={ShieldCheck} title="Clock-in Security">
         <p className="la-meta">
           Logging in with email and password always works from anywhere. These rules apply only to clocking in and out.
         </p>
@@ -239,7 +239,7 @@ function SecurityCard() {
         {error && <Alert error>{error}</Alert>}
       </SectionCard>
 
-      <SectionCard icon={Wifi} eyebrow="Clock-in rules" title="Company Networks">
+      <SectionCard icon={Wifi} title="Company Networks">
         <div className="la-meta">
           {detected.data?.ip ? (
             <>This connection appears as <strong>{detected.data.ip}</strong>. </>
@@ -698,7 +698,7 @@ export default function SettingsTab({ directory, showOrganisation = true }) {
 
   return (
     <>
-      <SectionCard icon={Settings} eyebrow="Company" title="Company Settings">
+      <SectionCard icon={Settings} title="Company Settings">
         {settings.error && <Alert error>{settings.error}</Alert>}
         {settings.data ? (
           <CompanyForm key={settings.data.updated_at} initial={settings.data} onSaved={settings.reload} />
@@ -713,11 +713,11 @@ export default function SettingsTab({ directory, showOrganisation = true }) {
 
       {showOrganisation && (
         <>
-          <SectionCard icon={Building2} eyebrow="Organisation" title="Departments">
+          <SectionCard icon={Building2} title="Departments">
             <Departments directory={directory} />
           </SectionCard>
 
-          <SectionCard icon={Briefcase} eyebrow="Organisation" title="Job Roles">
+          <SectionCard icon={Briefcase} title="Job Roles">
             <JobRoles directory={directory} />
           </SectionCard>
         </>

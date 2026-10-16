@@ -435,7 +435,7 @@ export default function EmployeesTab({ directory }) {
     <>
       <SectionCard
         icon={Users}
-        eyebrow="People"
+       
         title={isDeveloper ? 'Accounts' : 'Employees'}
         action={
           <PillButton size="sm" icon={UserPlus} onClick={() => setShowForm((v) => !v)}>

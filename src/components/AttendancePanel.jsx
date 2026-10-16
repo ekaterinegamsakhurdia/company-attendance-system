@@ -23,7 +23,7 @@ export function AttendancePanel({
   const suffix = requireBiometric ? ' with Face ID / fingerprint' : '';
 
   return (
-    <SectionCard icon={Clock} eyebrow="Attendance" title="My Attendance Today">
+    <SectionCard icon={Clock} title="My Attendance Today">
       <div className="la-grid">
         <FeatureTile icon={CalendarDays}>
           <strong>Date:</strong> {formatDate(todayInTz(timezone))}

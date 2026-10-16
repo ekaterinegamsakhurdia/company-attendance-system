@@ -87,12 +87,12 @@ export default function BookTimeOff({ onBooked }) {
 
   return (
     <>
-      <SectionCard icon={CalendarPlus} eyebrow="Time off" title={`Your days in ${shownYear}`}>
+      <SectionCard icon={CalendarPlus} title={`Your days in ${shownYear}`}>
         {shownBalance.error && <Alert error>{shownBalance.error}</Alert>}
         <BalanceCards rows={shownBalance.data} />
       </SectionCard>
 
-      <SectionCard icon={CalendarPlus} eyebrow="Time off" title="Book time off">
+      <SectionCard icon={CalendarPlus} title="Book time off">
         {options.loading && !options.data && <Message>Loading…</Message>}
         {options.error && <Alert error>{options.error}</Alert>}
         {options.data && (

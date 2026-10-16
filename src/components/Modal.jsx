@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { X } from 'lucide-react';
 import { PillButton } from './ui';
 
 export function Modal({ title, description, onClose, wide, children }) {
@@ -11,7 +12,9 @@ export function Modal({ title, description, onClose, wide, children }) {
   // Runs once per dialog, so re-renders of the parent never steal the focus.
   useEffect(() => {
     const previouslyFocused = document.activeElement;
-    ref.current?.querySelector('input, select, textarea, button')?.focus();
+    const node = ref.current;
+    ref.current?.querySelector('input, select, textarea, button:not(.la-modal-x)')?.focus();
+    document.body.style.overflow = 'hidden';
     // Escape closes only the top-most dialog.
     const onKey = (e) => {
       if (e.key !== 'Escape') return;
@@ -20,6 +23,7 @@ export function Modal({ title, description, onClose, wide, children }) {
     };
     document.addEventListener('keydown', onKey);
     return () => {
+      if ([...document.querySelectorAll('.la-modal')].every((m) => m === node)) document.body.style.overflow = '';
       document.removeEventListener('keydown', onKey);
       previouslyFocused?.focus?.();
     };
@@ -28,8 +32,15 @@ export function Modal({ title, description, onClose, wide, children }) {
   return (
     <div className="la-overlay">
       <div className={`la-modal${wide ? ' wide' : ''}`} role="dialog" aria-modal="true" aria-label={title} ref={ref}>
-        <h2>{title}</h2>
-        {description && <p className="la-meta" style={{ marginBottom: 16 }}>{description}</p>}
+        <div className="la-modal-head">
+          <div>
+            <h2>{title}</h2>
+            {description && <p className="la-meta">{description}</p>}
+          </div>
+          <button type="button" className="la-modal-x" aria-label="Close dialog" onClick={() => closeRef.current()}>
+            <X size={18} aria-hidden="true" />
+          </button>
+        </div>
         {children}
       </div>
     </div>

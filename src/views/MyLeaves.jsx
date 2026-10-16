@@ -58,7 +58,7 @@ export default function MyLeaves({ onBook }) {
     <>
       <SectionCard
         icon={Plane}
-        eyebrow="Leaves"
+       
         title="My Leaves"
         action={
           <PillButton size="sm" icon={CalendarPlus} onClick={onBook}>
@@ -80,12 +80,12 @@ export default function MyLeaves({ onBook }) {
         <p className="la-meta">Vacation, unpaid leave and days off are counted in working days (Monday to Friday, public holidays excluded). Days waiting for approval are already set aside.</p>
       </SectionCard>
 
-      <SectionCard icon={Plane} eyebrow="Leaves" title="Upcoming">
+      <SectionCard icon={Plane} title="Upcoming">
         {leaves.error && <Alert error>{leaves.error}</Alert>}
         {leaves.loading && !leaves.data ? <Message>Loading…</Message> : upcoming.length === 0 ? <Message>No upcoming leaves.</Message> : renderCards(upcoming)}
       </SectionCard>
 
-      <SectionCard icon={Plane} eyebrow="History" title="Past leaves">
+      <SectionCard icon={Plane} title="Past leaves">
         {leaves.loading && !leaves.data ? <Message>Loading…</Message> : past.length === 0 ? <Message>Nothing here yet.</Message> : renderCards(past)}
       </SectionCard>
 

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { BarChart3, Building2, CalendarCheck, CalendarDays, CalendarPlus, Cake, Clock, FileText, KeyRound, Plane, ScrollText, Settings, Palmtree } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useLoad } from '../hooks/useLoad';
 import { listDepartments, listEmployees, listJobRoles } from '../services/api';
@@ -21,20 +22,22 @@ import ToApprove from './ToApprove';
 import ProfileCardProvider from '../components/ProfileCard';
 
 const TABS = [
-  { id: 'accounts', label: 'Accounts' },
-  { id: 'structure', label: 'Structure' },
-  { id: 'settings', label: 'Settings' },
-  { id: 'today', label: 'Today' },
-  { id: 'approve', label: 'To approve' },
-  { id: 'leaves', label: 'Leaves' },
-  { id: 'calendar', label: 'Calendar' },
-  { id: 'reports', label: 'Reports' },
-  { id: 'analytics', label: 'Analytics' },
-  { id: 'celebrations', label: 'Birthdays & Anniversaries' },
-  { id: 'book', label: 'Book time off' },
-  { id: 'myleaves', label: 'My leaves' },
-  { id: 'audit', label: 'Audit Log' },
+  { id: 'accounts', label: 'Accounts', icon: KeyRound },
+  { id: 'structure', label: 'Structure', icon: Building2 },
+  { id: 'settings', label: 'Settings', icon: Settings },
+  { id: 'today', label: 'Today', icon: Clock },
+  { id: 'approve', label: 'To approve', icon: CalendarCheck },
+  { id: 'leaves', label: 'Leaves', icon: Palmtree },
+  { id: 'calendar', label: 'Calendar', icon: CalendarDays },
+  { id: 'reports', label: 'Reports', icon: FileText },
+  { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+  { id: 'celebrations', label: 'Birthdays & Anniversaries', icon: Cake },
+  { id: 'book', label: 'Book time off', icon: CalendarPlus },
+  { id: 'myleaves', label: 'My leaves', icon: Plane },
+  { id: 'audit', label: 'Audit Log', icon: ScrollText },
 ];
+
+const longDate = () => new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
 /**
  * Developers can do everything a CEO can, plus manage accounts (add / remove CEOs,
@@ -66,13 +69,13 @@ export default function DeveloperDashboard() {
 
   return (
     <ProfileCardProvider directory={directory}>
-    <Shell wide onLogout={signOut}>
-      <Hero eyebrow="Developer Dashboard" subtitle={`Welcome, ${employee.first_name}.`} />
+    <Shell wide onLogout={signOut} user={employee} roleLabel="Developer">
+      <Hero eyebrow="Developer Dashboard" title={`Welcome, ${employee.first_name}.`} subtitle={longDate()} />
 
       <Tabs tabs={TABS.map((t) => (t.id === 'approve' ? { ...t, label: <TabLabel text="To approve" count={waiting} /> } : t))} value={tab} onChange={setTab} />
       {loadError && <Alert error>{loadError}</Alert>}
 
-      <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} className="la-stack" style={{ gap: 24 }}>
+      <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} className="la-stack la-panel" key={tab}>
         {tab === 'accounts' && <EmployeesTab directory={directory} />}
         {tab === 'structure' && <StructureTab directory={directory} />}
         {tab === 'settings' && <SettingsTab directory={directory} showOrganisation={false} />}

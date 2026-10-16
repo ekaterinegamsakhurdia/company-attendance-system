@@ -6,11 +6,11 @@ import { Departments, JobRoles } from './SettingsTab';
 export default function StructureTab({ directory }) {
   return (
     <>
-      <SectionCard icon={Building2} eyebrow="Organisation" title="Departments">
+      <SectionCard icon={Building2} title="Departments">
         <Departments directory={directory} />
       </SectionCard>
 
-      <SectionCard icon={Briefcase} eyebrow="Organisation" title="Job Roles">
+      <SectionCard icon={Briefcase} title="Job Roles">
         <JobRoles directory={directory} />
       </SectionCard>
     </>

@@ -1,4 +1,5 @@
-import { Layers, LogOut, CheckCircle2, AlertCircle } from 'lucide-react';
+import { useLayoutEffect, useRef, useState } from 'react';
+import { Layers, LogOut, CheckCircle2, AlertCircle, Inbox } from 'lucide-react';
 
 export function Eyebrow({ children }) {
   return <div className="la-eyebrow">{children}</div>;
@@ -32,8 +33,8 @@ export function SectionCard({ icon, eyebrow, title, action, children }) {
         <div className="la-card-head-left">
           {icon && <IconTile icon={icon} />}
           <div>
-            {eyebrow && <Eyebrow>{eyebrow}</Eyebrow>}
             <h2 className="la-h2">{title}</h2>
+            {eyebrow && <p className="la-card-sub">{eyebrow}</p>}
           </div>
         </div>
         {action}
@@ -77,10 +78,34 @@ export function Pill({ tone, children }) {
   return <span className={`la-pill${tone ? ` ${tone}` : ''}`}>{children}</span>;
 }
 
-export function Message({ children }) {
+export function Skeleton({ lines = 3 }) {
   return (
-    <div className="la-message" role="status">
-      {children}
+    <div className="la-skel-group" aria-hidden="true">
+      {Array.from({ length: lines }, (_, i) => (
+        <span key={i} className="la-skel" style={{ width: `${[100, 82, 64, 90][i % 4]}%` }} />
+      ))}
+    </div>
+  );
+}
+
+/** Loading text gets a skeleton; anything else is shown as a calm empty state. */
+export function Message({ children }) {
+  const loading = typeof children === 'string' && /^Loading/i.test(children);
+  return (
+    <div className={`la-message${loading ? ' loading' : ''}`} role="status">
+      {loading ? (
+        <>
+          <Skeleton />
+          <span className="la-message-text">{children}</span>
+        </>
+      ) : (
+        <>
+          <span className="la-message-icon" aria-hidden="true">
+            <Inbox size={18} />
+          </span>
+          <span className="la-message-text">{children}</span>
+        </>
+      )}
     </div>
   );
 }
@@ -121,49 +146,132 @@ export function Field({ label, id, hint, children }) {
 }
 
 export function Tabs({ tabs, value, onChange }) {
+  const trackRef = useRef(null);
+  const [ind, setInd] = useState(null);
+  const [edge, setEdge] = useState({ start: false, end: false });
+
+  // The highlight slides to the selected tab; on narrow screens the bar scrolls it into view.
+  useLayoutEffect(() => {
+    const track = trackRef.current;
+    if (!track) return undefined;
+    const measureEdges = () =>
+      setEdge({ start: track.scrollLeft > 4, end: track.scrollLeft + track.clientWidth < track.scrollWidth - 4 });
+    const place = () => {
+      const el = track.querySelector('[aria-selected="true"]');
+      if (el) setInd({ left: el.offsetLeft, top: el.offsetTop, width: el.offsetWidth, height: el.offsetHeight });
+      else setInd(null);
+      measureEdges();
+    };
+    place();
+    const el = track.querySelector('[aria-selected="true"]');
+    if (el && track.scrollWidth > track.clientWidth) {
+      track.scrollTo?.({ left: Math.max(0, el.offsetLeft - (track.clientWidth - el.offsetWidth) / 2), behavior: 'smooth' });
+    }
+    track.addEventListener('scroll', measureEdges, { passive: true });
+    if (typeof ResizeObserver === 'undefined') return () => track.removeEventListener('scroll', measureEdges);
+    const ro = new ResizeObserver(place);
+    ro.observe(track);
+    track.querySelectorAll('.la-tab').forEach((t) => ro.observe(t));
+    return () => {
+      ro.disconnect();
+      track.removeEventListener('scroll', measureEdges);
+    };
+  }, [value, tabs.length]);
+
   return (
-    <div className="la-tabs" role="tablist">
-      {tabs.map((t) => (
-        <button
-          key={t.id}
-          type="button"
-          role="tab"
-          id={`tab-${t.id}`}
-          aria-selected={value === t.id}
-          aria-controls={`panel-${t.id}`}
-          className="la-tab"
-          onClick={() => onChange(t.id)}
-        >
-          {t.label}
-        </button>
-      ))}
+    <div className={`la-tabs-wrap${edge.start ? ' fade-start' : ''}${edge.end ? ' fade-end' : ''}`}>
+      <div className="la-tabs" role="tablist" ref={trackRef}>
+        {ind && (
+          <span
+            className="la-tab-ind"
+            aria-hidden="true"
+            style={{ transform: `translate(${ind.left}px, ${ind.top}px)`, width: ind.width, height: ind.height }}
+          />
+        )}
+        {tabs.map((t) => {
+          const Icon = t.icon;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              id={`tab-${t.id}`}
+              aria-selected={value === t.id}
+              aria-controls={`panel-${t.id}`}
+              className="la-tab"
+              onClick={() => onChange(t.id)}
+            >
+              {Icon && <Icon size={15} aria-hidden="true" />}
+              <span className="la-tab-label">{t.label}</span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-export function Shell({ children, wide, onLogout }) {
+const initials = (u) => `${(u?.first_name || '?')[0]}${(u?.last_name || '')[0] || ''}`.toUpperCase();
+
+/**
+ * Page frame. `user` ({ first_name, last_name }) and `roleLabel` fill the account chip in the top bar;
+ * `bare` drops the bar for sign-in style pages.
+ */
+export function Shell({ children, wide, onLogout, user, roleLabel, bare }) {
   return (
-    <div className="la-page">
-      <header className="la-nav">
-        <div className={`la-nav-inner${wide ? ' wide' : ''}`}>
-          <div className="la-brand">
-            <IconTile icon={Layers} />
-            <span>Looper Agency</span>
+    <div className={`la-page${bare ? ' bare' : ''}`}>
+      {!bare && (
+        <header className="la-nav">
+          <div className={`la-nav-inner${wide ? ' wide' : ''}`}>
+            <div className="la-brand">
+              <span className="la-logo" aria-hidden="true">
+                <Layers size={18} />
+              </span>
+              <span>Looper Agency</span>
+            </div>
+            <div className="la-nav-right">
+              {user && (
+                <div className="la-user" title={`${user.first_name} ${user.last_name}`}>
+                  <span className="la-avatar" aria-hidden="true">
+                    {initials(user)}
+                  </span>
+                  <span className="la-user-text">
+                    <span className="la-user-name">
+                      {user.first_name} {user.last_name}
+                    </span>
+                    {roleLabel && <span className="la-user-role">{roleLabel}</span>}
+                  </span>
+                </div>
+              )}
+              {onLogout && (
+                <button type="button" className="la-btn secondary sm la-logout" onClick={onLogout} aria-label="Log Out">
+                  <LogOut size={15} aria-hidden="true" />
+                  <span className="la-logout-text">Log Out</span>
+                </button>
+              )}
+            </div>
           </div>
-          {onLogout && (
-            <PillButton size="sm" icon={LogOut} onClick={onLogout}>
-              Log Out
-            </PillButton>
-          )}
-        </div>
-      </header>
+        </header>
+      )}
       <main className={`la-main${wide ? ' wide' : ''}`}>{children}</main>
       <footer className="la-version">Version {typeof __BUILD_STAMP__ === 'string' ? __BUILD_STAMP__ : 'dev'}</footer>
     </div>
   );
 }
 
-export function Hero({ eyebrow, subtitle }) {
+/** Page header. With `title` it is a compact dashboard header, otherwise the original brand banner. */
+export function Hero({ eyebrow, title, subtitle }) {
+  if (title) {
+    return (
+      <div className="la-hero compact">
+        <div className="la-hero-text">
+          {eyebrow && <span className="la-badge">{eyebrow}</span>}
+          <h1 className="la-h1">{title}</h1>
+          {subtitle && <p>{subtitle}</p>}
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="la-hero">
       {eyebrow && <span className="la-badge">{eyebrow}</span>}
@@ -172,6 +280,26 @@ export function Hero({ eyebrow, subtitle }) {
       </h1>
       {subtitle && <p>{subtitle}</p>}
     </div>
+  );
+}
+
+/** Centered brand block + card used by the sign-in and password pages. */
+export function AuthLayout({ subtitle, children }) {
+  return (
+    <Shell bare>
+      <div className="la-auth">
+        <div className="la-auth-brand">
+          <span className="la-logo big" aria-hidden="true">
+            <Layers size={26} />
+          </span>
+          <h1 className="la-h1">
+            Looper <span>Agency</span>
+          </h1>
+          {subtitle && <p>{subtitle}</p>}
+        </div>
+        {children}
+      </div>
+    </Shell>
   );
 }
 

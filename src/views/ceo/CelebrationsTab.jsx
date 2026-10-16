@@ -41,7 +41,7 @@ export default function CelebrationsTab({ directory }) {
 
   return (
     <>
-      <SectionCard icon={CalendarClock} eyebrow="People" title="Birthdays & Anniversaries">
+      <SectionCard icon={CalendarClock} title="Birthdays & Anniversaries">
         <div className="la-toolbar">
           <Field label="Show" id="cel-window">
             <select id="cel-window" className="la-input compact" value={windowDays} onChange={(e) => setWindowDays(Number(e.target.value))}>
@@ -54,7 +54,7 @@ export default function CelebrationsTab({ directory }) {
         {profiles.error && <Alert error>{profiles.error}</Alert>}
       </SectionCard>
 
-      <SectionCard icon={Cake} eyebrow="Upcoming" title="Birthdays">
+      <SectionCard icon={Cake} title="Birthdays">
         {profiles.loading && !profiles.data ? (
           <Message>Loading…</Message>
         ) : birthdays.length === 0 ? (
@@ -74,7 +74,7 @@ export default function CelebrationsTab({ directory }) {
         )}
       </SectionCard>
 
-      <SectionCard icon={PartyPopper} eyebrow="Upcoming" title="Work anniversaries">
+      <SectionCard icon={PartyPopper} title="Work anniversaries">
         {profiles.loading && !profiles.data ? (
           <Message>Loading…</Message>
         ) : anniversaries.length === 0 ? (
@@ -96,7 +96,7 @@ export default function CelebrationsTab({ directory }) {
       </SectionCard>
 
       {missing.length > 0 && (
-        <SectionCard icon={Pencil} eyebrow="To complete" title="Missing dates">
+        <SectionCard icon={Pencil} title="Missing dates">
           <p className="la-meta">These people will appear in the calendar and the analytics once their dates are entered.</p>
           <DataTable headers={['Name', 'Department', 'Birth date', 'Start date', '']} minWidth={640}>
             {missing.map(({ employee: e, birth, hire }) => (

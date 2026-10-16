@@ -17,7 +17,7 @@ Employee attendance tracker. React 19 + Vite on the front end, Supabase (Postgre
 | Reports | Date-range / department / employee report, CSV export, correct or add records (reason required, audited) |
 | Employees | Add + invite, resend invitation, department, job role, registered devices, delete |
 | Settings | Company name, time zone, work hours, **yearly leave allowances**, **public holidays**, **clock-in security**, **company networks**, department heads, job roles |
-| Audit Log | Who changed what, with reasons |
+| Audit Log (*Important changes*) | Only the important entries: people added or removed, account / department / job-role changes, networks, company settings, attendance corrections and cancelled leaves. Routine activity and anything a developer did is **not** shown to CEOs (enforced by the database) |
 
 **CEOs and developers clock in and out like everyone else** (Today tab) and appear in the daily overview, reports, CSV exports, corrections and auto clock-out. In reports they are listed under "CEOs and developers (no department)"; the CSV has an *Account type* column (last column, so existing column positions did not change). **CEOs see everyone's attendance, the developer's included**; they can correct CEO and employee records, but a developer's account and records are read-only for them. Department heads still only see their own department.
 
@@ -66,9 +66,10 @@ A developer is the technical owner of the app. They get their own **Developer Da
 | Structure | Add, rename, deactivate and **delete** departments and job roles; set department heads |
 | Settings | Company settings, clock-in security switches, office networks |
 | Leaves / Calendar / Birthdays / Analytics / My leaves | Same as the CEO, plus **add, edit and delete any leave**, change anyone's allowance, birth and start dates |
-| Today / Reports / Audit Log | Same as the CEO |
+| Today / Reports | Same as the CEO |
+| Audit Log | **Everything**, including developer actions and routine activity, with a filter (*Everything*, *Important only (what CEOs see)*, *Made by developers*, people and structure, attendance, leaves, system) |
 
-Rules: CEOs can see developer accounts but **cannot change them** (they show as *Protected*; the database refuses edits, deletion, account-type changes and removing their devices); a developer cannot change their own type, deactivate or delete themselves, so there is always at least one; developers belong to no department but clock in like everyone else; only a developer can correct a developer's attendance. A department or job role can only be deleted when nobody belongs to it. Everything is written to the audit log, which the CEO can read.
+Rules: CEOs can see developer accounts but **cannot change them** (they show as *Protected*; the database refuses edits, deletion, account-type changes and removing their devices); a developer cannot change their own type, deactivate or delete themselves, so there is always at least one; developers belong to no department but clock in like everyone else; only a developer can correct a developer's attendance. A department or job role can only be deleted when nobody belongs to it. Everything is written to the audit log; the CEO reads only the important, non-developer entries, the developer reads all of it.
 
 **Create the first developer** once, after applying the migrations: create the login in *Authentication → Users → Add user* (tick *Auto Confirm User*), then edit and run `supabase/tools/create_first_developer.sql` in the SQL editor. Use an email that is not the CEO's. All other accounts are then created from the dashboard.
 
@@ -135,14 +136,15 @@ supabase functions deploy change-email
 
 ### Rollout checklist
 
-0. Apply migrations 3 to 6, deploy `invite-employee`, `delete-employee` and `change-email` again, and create the first developer (see *Developer account*). If you already did this for migration 3, only `supabase db push` is needed for migration 4.
+0. Apply migrations 3 to 7, deploy `invite-employee`, `delete-employee` and `change-email` again, and create the first developer (see *Developer account*). If you already did this for migration 3, only `supabase db push` is needed for migration 4.
 1. Apply migration 2 and deploy the `webauthn` function. Nothing changes for employees yet.
 2. As CEO open the **Employees** tab and set each person's department and (for Production) job role, then pick the five department heads under **Settings**.
 3. **Settings → Company Networks:** while on the office wifi press *Add my current network*. Check that the shown IP is the office's public IP.
 4. Turn on **Require the company network** and test a clock-in from the office and from a phone on mobile data (it must be refused).
 5. **Leaves:** run `supabase db push` for migration 5, push the front end, then as CEO enter each person's **birth date and start date** (Employees → Details; the *Birthdays & Anniversaries* tab lists who is missing), check **Settings → Public Holidays** for the current year and adjust the three allowance defaults if needed.
 6. **Profile cards and timesheet:** run `supabase db push` for migration 6 and push the front end. Optionally fill in office, country, working hours and approver per person (click a name, *Edit details*).
-7. Ask employees to open the app on their phone and register it (**My Devices → Register this device**), then turn on **Require Face ID / fingerprint**.
+7. **Audit scope and new look:** run `supabase db push` for migration 7 (`20261016120000_audit_scope.sql`) and push the front end. No Edge Function needs redeploying.
+8. Ask employees to open the app on their phone and register it (**My Devices → Register this device**), then turn on **Require Face ID / fingerprint**.
 
 ## Tests
 
@@ -155,7 +157,7 @@ npm run build
 PGHOST=localhost PGUSER=postgres bash supabase/tests/run.sh
 ```
 
-The database tests build a mock of Supabase's `auth` schema, apply all six migrations and assert RLS, department-head scope, job-role integrity, network enforcement (including spoofed headers), one-time biometric tokens, server-side time, corrections, audit entries, auto clock-out (including overnight shifts), the delete order, CEO / developer attendance rules, 300 company networks (single addresses, a range and an IPv6 prefix), and the leave rules: Georgian holidays and Orthodox Easter for 2025–2030 and 2035, working-day counting, year splits, approval authority, overlaps, balances, replacement conflicts, cancel rules, listing scopes, allowances, profile privacy, developer edit rights, audit rows and cascade deletes, and the profile details (office, country, hours, approver, one-person leave lists, approver pre-selection).
+The database tests build a mock of Supabase's `auth` schema, apply all seven migrations and assert RLS, department-head scope, job-role integrity, network enforcement (including spoofed headers), one-time biometric tokens, server-side time, corrections, audit entries, auto clock-out (including overnight shifts), the delete order, CEO / developer attendance rules, 300 company networks (single addresses, a range and an IPv6 prefix), and the leave rules: Georgian holidays and Orthodox Easter for 2025–2030 and 2035, working-day counting, year splits, approval authority, overlaps, balances, replacement conflicts, cancel rules, listing scopes, allowances, profile privacy, developer edit rights, audit rows and cascade deletes, and the profile details (office, country, hours, approver, one-person leave lists, approver pre-selection).
 
 CI (`.github/workflows/ci.yml`) runs lint, unit tests, build, the database tests on Postgres 16 and `deno check` on all four Edge Functions.
 

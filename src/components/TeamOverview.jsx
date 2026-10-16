@@ -45,7 +45,7 @@ export default function TeamOverview({ directory, title = 'Team Overview', onRef
 
       <SectionCard
         icon={CalendarDays}
-        eyebrow="Attendance"
+       
         title="Today's Attendance"
         action={
           <PillButton variant="secondary" size="sm" icon={RefreshCw} onClick={refresh} disabled={team.loading}>

@@ -99,7 +99,7 @@ export default function HolidaysCard() {
     <>
       <SectionCard
         icon={CalendarHeart}
-        eyebrow="Calendar"
+       
         title="Public Holidays"
         action={
           <PillButton size="sm" icon={Plus} onClick={() => setEditing({})}>
