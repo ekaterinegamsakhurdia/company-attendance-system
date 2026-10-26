@@ -411,6 +411,84 @@ textarea.la-input { resize: vertical; min-height: 84px; }
   html { scroll-behavior: auto; }
 }
 
+/* ---- Office today (floor plan) ---- */
+.la-live { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--ok); }
+.la-live i { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 0 rgba(110,231,168,.6); animation: la-live 2.4s ease-out infinite; }
+@keyframes la-live { 70% { box-shadow: 0 0 0 9px rgba(110,231,168,0); } 100% { box-shadow: 0 0 0 0 rgba(110,231,168,0); } }
+.la-office-summary { display: flex; flex-wrap: wrap; gap: 6px 26px; margin-bottom: 8px; color: var(--text-body); }
+.la-office-summary strong { font-size: 22px; color: var(--text-heading); margin-right: 6px; font-variant-numeric: tabular-nums; }
+.la-office-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-bottom: 18px; font-size: 12px; color: var(--text-muted); }
+.la-office-legend .dot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+.la-office-legend .dot.office { background: var(--ok); box-shadow: 0 0 8px rgba(110,231,168,.6); }
+.la-office-legend .dot.online { border: 1.5px dashed #b9a6ff; opacity: .6; }
+.la-office-legend .dot.seat { border: 1.5px dashed var(--border-strong); }
+.la-office-note { display: flex; align-items: center; gap: 6px; margin: 16px 0 0; }
+
+.la-plan { display: flex; flex-direction: column; gap: 14px; padding-top: 26px; }
+/* The walls are the 5px gaps between the rooms; the floor plan follows the sketch of the real office. */
+.la-floor {
+  display: grid; gap: 5px; padding: 5px; border-radius: 22px;
+  background: linear-gradient(135deg, #3b6fd0, #284f9c);
+  box-shadow: 0 0 0 1px rgba(120,160,255,.35), 0 28px 60px -30px rgba(26,92,255,.55);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1fr);
+  grid-template-rows: repeat(4, minmax(112px, auto));
+  grid-template-areas: "design accounts copy" "design accounts copy" "production accounts ceo2" "production accounts ceo1";
+}
+.la-room.design { grid-area: design; } .la-room.production { grid-area: production; } .la-room.accounts { grid-area: accounts; }
+.la-room.copy { grid-area: copy; } .la-room.ceo1 { grid-area: ceo1; } .la-room.ceo2 { grid-area: ceo2; }
+.la-room {
+  position: relative; display: flex; flex-direction: column; min-width: 0; padding: 14px 16px 16px;
+  border-radius: 10px;
+  background:
+    linear-gradient(rgba(120,160,255,.045) 1px, transparent 1px) 0 0 / 28px 28px,
+    linear-gradient(90deg, rgba(120,160,255,.045) 1px, transparent 1px) 0 0 / 28px 28px,
+    var(--bg-card-inner);
+}
+.la-room:hover, .la-room:focus-within { z-index: 3; }
+.la-room-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.la-room-head h3 { margin: 0; font-size: 15px; color: var(--text-heading); letter-spacing: .01em; }
+.la-room-head span { font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.la-room-floor { flex: 1; display: flex; flex-wrap: wrap; align-content: center; justify-content: center; gap: 16px 14px; padding: 22px 4px 8px; }
+.la-room-empty { margin: -6px 0 0; text-align: center; font-size: 12px; color: var(--text-muted); }
+
+.la-seat { width: 40px; height: 40px; border-radius: 50%; border: 1.5px dashed rgba(120,160,255,.22); opacity: .7; }
+
+.la-bub { position: relative; border: 0; background: none; padding: 0; margin: 0; font: inherit; color: inherit; cursor: default; border-radius: 50%; }
+.la-bub:hover, .la-bub:focus { z-index: 6; }
+.la-bub:focus { outline: none; }
+.la-bub:focus-visible .la-bub-float { outline: 2px solid #fff; outline-offset: 3px; }
+.la-bub-float { position: relative; display: block; border-radius: 50%; animation: la-drift var(--dur, 6s) ease-in-out var(--delay, 0s) infinite alternate; transition: transform 240ms var(--ease), opacity 240ms ease; }
+@keyframes la-drift { from { transform: translate(calc(var(--dx, 4px) * -1), calc(var(--dy, 6px) * -1)); } to { transform: translate(var(--dx, 4px), var(--dy, 6px)); } }
+.la-bub .la-avatar { width: 56px; height: 56px; font-size: 17px; }
+.la-bub.office .la-avatar { box-shadow: 0 0 0 2.5px var(--bg-card-inner), 0 0 0 4.5px var(--ok), 0 10px 26px -6px rgba(110,231,168,.65); }
+/* working from home: see-through, with a dashed ring */
+.la-bub.online .la-bub-float { opacity: .42; }
+.la-bub.online .la-avatar { box-shadow: 0 0 0 2.5px var(--bg-card-inner), 0 0 0 4.5px #b9a6ff; }
+.la-bub.online:hover .la-bub-float, .la-bub.online:focus .la-bub-float { opacity: .9; }
+.la-bub:hover .la-bub-float, .la-bub:focus .la-bub-float { transform: scale(1.1); }
+.la-bub-badge { position: absolute; right: -4px; bottom: -3px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: #6d4fe0; color: #fff; border: 2px solid var(--bg-card-inner); }
+
+.la-bub-tip {
+  position: absolute; bottom: calc(100% + 12px); left: 50%; z-index: 7; display: flex; flex-direction: column; gap: 2px; width: max-content; max-width: 220px; padding: 9px 13px;
+  text-align: left; border-radius: 12px; background: var(--bg-raised); border: 1px solid var(--border-strong); box-shadow: var(--shadow-pop);
+  opacity: 0; visibility: hidden; transform: translate(-50%, 6px); transition: opacity 160ms ease, transform 200ms var(--ease), visibility 160ms;
+  pointer-events: none; font-size: 13px; line-height: 1.35;
+}
+.la-bub-tip::after { content: ""; position: absolute; top: 100%; left: 50%; width: 10px; height: 10px; background: inherit; border: inherit; border-top: 0; border-left: 0; transform: translate(-50%, -5px) rotate(45deg); }
+.la-bub-tip strong { color: var(--text-heading); }
+.la-bub-status { font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+.la-bub-status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.la-bub-status.office { color: var(--ok); } .la-bub-status.online { color: #c9baff; } .la-bub-status.ot { color: #5eead4; }
+.la-bub:hover .la-bub-tip, .la-bub:focus .la-bub-tip { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
+
+@media (max-width: 900px) {
+  .la-floor { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: none; grid-template-areas: "design production" "accounts accounts" "copy copy" "ceo2 ceo1"; }
+}
+@media (max-width: 560px) {
+  .la-floor { grid-template-columns: minmax(0, 1fr); grid-template-areas: "design" "production" "accounts" "copy" "ceo2" "ceo1"; }
+  .la-bub-tip { max-width: 170px; }
+}
+
 /* ---- leaves & calendar ---- */
 .la-cal-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .la-cal-title { flex: 1; text-align: center; font-size: 18px; }

@@ -97,6 +97,11 @@ export async function clockOut(verificationId = null) {
   return unwrap(await supabase.rpc('clock_out', { p_verification: verificationId }));
 }
 
+/** Who is clocked in right now, per room (names only for people who are in). */
+export async function fetchOfficeToday() {
+  return unwrap(await supabase.rpc('office_today')) ?? [];
+}
+
 /** { ip, required, on_company_network } as seen by the server. */
 export async function fetchNetworkStatus() {
   return unwrap(await supabase.rpc('my_network_status'));

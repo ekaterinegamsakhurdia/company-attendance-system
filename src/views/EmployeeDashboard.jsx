@@ -10,6 +10,7 @@ import { canDecide } from '../lib/leaves';
 import HeadTeam from './HeadTeam';
 import MyLeaves from './MyLeaves';
 import CalendarView from './CalendarView';
+import OfficeMap from './OfficeMap';
 import LeavesTab from './ceo/LeavesTab';
 import BookTimeOff from './BookTimeOff';
 import ToApprove from './ToApprove';
@@ -45,13 +46,15 @@ export default function EmployeeDashboard() {
   ];
 
   return (
-    <Shell wide={Boolean(headDepartment) || tab === 'calendar'} onLogout={signOut} user={employee} roleLabel={headDepartment ? `${headDepartment.name} head` : 'Employee'} avatarPath={myProfile?.avatar_path} onProfile={() => setMine(true)}>
+    <Shell wide={Boolean(headDepartment) || tab === 'calendar' || tab === 'me'} onLogout={signOut} user={employee} roleLabel={headDepartment ? `${headDepartment.name} head` : 'Employee'} avatarPath={myProfile?.avatar_path} onProfile={() => setMine(true)}>
       <Hero eyebrow="Employee Attendance System" title="My workday" subtitle={longDate()} />
       <Tabs tabs={tabs} value={tab} onChange={setTab} />
 
       <div className="la-stack la-panel" key={tab}>
       {tab === 'me' && (
         <>
+          <OfficeMap />
+
           <SectionCard
             icon={User}
             eyebrow="Your details"

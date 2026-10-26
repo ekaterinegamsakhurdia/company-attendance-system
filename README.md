@@ -77,6 +77,10 @@ Rules: CEOs can see developer accounts but **cannot change them** (they show as 
 
 **Create the first developer** once, after applying the migrations: create the login in *Authentication → Users → Add user* (tick *Auto Confirm User*), then edit and run `supabase/tools/create_first_developer.sql` in the SQL editor. Use an email that is not the CEO's. All other accounts are then created from the dashboard.
 
+### Office map (floor plan)
+
+The **Office today** map is the first thing on the **Today** tab of CEOs and developers, and on the **My attendance** tab of employees and department heads (it is not a tab of its own). It is a floor plan with exactly the six rooms of the real office: **Designers** and **Production** on the left, **Account managers** in the middle, **Copywriters** on the right and **CEO 2** above **CEO 1** at the bottom right. Rooms are matched by department name; the first CEO account (lowest employee number) sits in CEO 1, the second in CEO 2. Teams without a room (for example Advertising) and developers are not drawn. Each person who is **clocked in right now** floats as their profile picture in their room. People who work from home (an online day) are **see-through** with a small house badge. Hovering over (or tapping, or focusing with the keyboard) a bubble shows the name and *In the office* / *Online, working from home* (and *Working overtime*). A bubble appears when the person clocks in and disappears when they clock out; the map refreshes every 15 seconds and when the page is opened again. People who are not clocked in are **not named**: they are only drawn as empty seats, so colleagues cannot see who is away, ill or on leave (the database function `office_today()` returns no name, id or photo for them).
+
 ### Online work days and overtime
 
 **Online work day.** Before clocking in, an employee (or CEO / developer) chooses **At the company** or **Online**. An online day can be clocked in and out from any network (Face ID / fingerprint still applies when it is on). It is recorded on the attendance record (`work_mode = 'online'`), written to the audit log (developers read it), shown in its own **violet** colour in the Calendar (the person, their department head, CEOs and developers; layer *Online work days*), as an **Online** pill in *Today*, in *Reports → Records* (and the CSV column *Work mode*) and in the timesheet (violet cell, **ON** column). The mode can only be chosen when clocking in; it cannot be changed afterwards. A CEO or developer can switch the feature off for everyone in **Settings → Clock-in Security → Allow online work days**.
@@ -126,6 +130,7 @@ npm run dev
    7. `20261016120000_audit_scope.sql`, which audit entries a CEO may read (important, non-developer ones only).
    8. `20261026120000_self_profile_avatars.sql`, profile pictures (`avatars` bucket, `employee_profiles.avatar_path`, `set_avatar()`) and `update_my_profile()` so people can edit their own name and birth date. Redeploy `delete-employee` afterwards.
    9. `20261027120000_online_days_overtime.sql`, online work days (`attendance.work_mode`, `company_settings.allow_online_days`), overtime (`start_overtime()`, `attendance.overtime_minutes`), the new `clock_in(verification, online)` and an auto clock-out that leaves overtime days open.
+   10. `20261028120000_office_today.sql`, the `office_today()` function behind the office map (names only for people who are clocked in).
 3. If the migration prints `pg_cron is not available`, enable the *pg_cron* extension in the dashboard and run:
    `select cron.schedule('auto-clock-out', '*/10 * * * *', 'select public.auto_clock_out()');`
 4. Check Dashboard → Authentication → URL Configuration: the Site URL and redirect list must include `https://YOUR-SITE/set-password`. If it is missing, Supabase sends the person to the site root instead; the app now still shows the *Create Your Password* page (or *Link problem* for an expired link) in that case, but add the address anyway.
@@ -149,7 +154,7 @@ supabase functions deploy change-email
 
 ### Rollout checklist
 
-0. Apply migrations 3 to 9, deploy `invite-employee`, `delete-employee` and `change-email` again, and create the first developer (see *Developer account*). If you already did this for migration 3, only `supabase db push` is needed for migration 4.
+0. Apply migrations 3 to 10, deploy `invite-employee`, `delete-employee` and `change-email` again, and create the first developer (see *Developer account*). If you already did this for migration 3, only `supabase db push` is needed for migration 4.
 1. Apply migration 2 and deploy the `webauthn` function. Nothing changes for employees yet.
 2. As CEO open the **Employees** tab and set each person's department and (for Production) job role, then pick the five department heads under **Settings**.
 3. **Settings → Company Networks:** while on the office wifi press *Add my current network*. Check that the shown IP is the office's public IP.
@@ -159,7 +164,8 @@ supabase functions deploy change-email
 7. **Audit scope and new look:** run `supabase db push` for migration 7 (`20261016120000_audit_scope.sql`) and push the front end. No Edge Function needs redeploying.
 8. **Profile pictures and self-edit (migration 8):** run `supabase db push` for migration 8 (`20261026120000_self_profile_avatars.sql`, creates the `avatars` bucket and its policies), **redeploy `delete-employee`** (`supabase functions deploy delete-employee`, so photos are removed with the person) and push the front end.
 9. **Online days and overtime:** run `supabase db push` for migration 9 (`20261027120000_online_days_overtime.sql`) and push the front end. No Edge Function needs redeploying. Check that the *pg_cron* job `auto-clock-out` is running (it already should be): overtime relies on it.
-10. Ask employees to open the app on their phone and register it (**My Devices → Register this device**), then turn on **Require Face ID / fingerprint**.
+10. **Office map:** run `supabase db push` for migration 10 (`20261028120000_office_today.sql`) and push the front end. Nothing else to configure; people see it on Today / My attendance.
+11. Ask employees to open the app on their phone and register it (**My Devices → Register this device**), then turn on **Require Face ID / fingerprint**.
 
 ## Tests
 
@@ -172,7 +178,7 @@ npm run build
 PGHOST=localhost PGUSER=postgres bash supabase/tests/run.sh
 ```
 
-The database tests build a mock of Supabase's `auth` schema, apply all nine migrations and assert RLS, department-head scope, job-role integrity, network enforcement (including spoofed headers), one-time biometric tokens, server-side time, corrections, audit entries, auto clock-out (including overnight shifts), the delete order, CEO / developer attendance rules, 300 company networks (single addresses, a range and an IPv6 prefix), and the leave rules: Georgian holidays and Orthodox Easter for 2025–2030 and 2035, working-day counting, year splits, approval authority, overlaps, balances, replacement conflicts, cancel rules, listing scopes, allowances, profile privacy, developer edit rights, audit rows and cascade deletes, and the profile details (office, country, hours, approver, one-person leave lists, approver pre-selection), self-service profiles (own name / birth date only, photo rules, storage policies, privacy), and online work days and overtime (network rules, Face ID, minutes, auto clock-out, visibility, audit).
+The database tests build a mock of Supabase's `auth` schema, apply all ten migrations and assert RLS, department-head scope, job-role integrity, network enforcement (including spoofed headers), one-time biometric tokens, server-side time, corrections, audit entries, auto clock-out (including overnight shifts), the delete order, CEO / developer attendance rules, 300 company networks (single addresses, a range and an IPv6 prefix), and the leave rules: Georgian holidays and Orthodox Easter for 2025–2030 and 2035, working-day counting, year splits, approval authority, overlaps, balances, replacement conflicts, cancel rules, listing scopes, allowances, profile privacy, developer edit rights, audit rows and cascade deletes, and the profile details (office, country, hours, approver, one-person leave lists, approver pre-selection), self-service profiles (own name / birth date only, photo rules, storage policies, privacy), online work days and overtime (network rules, Face ID, minutes, auto clock-out, visibility, audit), and the office map (who appears, privacy of absent people, clock-out removes the bubble).
 
 CI (`.github/workflows/ci.yml`) runs lint, unit tests, build, the database tests on Postgres 16 and `deno check` on all four Edge Functions.
 
