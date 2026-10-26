@@ -15,7 +15,7 @@ Employee attendance tracker. React 19 + Vite on the front end, Supabase (Postgre
 | Analytics | Team count, average age, average length of service, people on leave today; used / left days per person and per leave type; per-person allowance; CSV |
 | My leaves | The CEO's own leave requests (approved by another CEO or the developer) |
 | Reports | Date-range / department / employee report, CSV export, correct or add records (reason required, audited) |
-| Employees | Add + invite, resend invitation, department, job role, registered devices, delete |
+| Employees | Add + invite, resend invitation, department, job role, registered devices, delete. **Click a name to open the person's card**: details, leave days and the *Edit details* form are all there (no separate Edit / Details buttons) |
 | Settings | Company name, time zone, work hours, **yearly leave allowances**, **public holidays**, **clock-in security**, **company networks**, department heads, job roles |
 | Audit Log (*Important changes*) | Only the important entries: people added or removed, account / department / job-role changes, networks, company settings, attendance corrections and cancelled leaves. Routine activity and anything a developer did is **not** shown to CEOs (enforced by the database) |
 
@@ -24,6 +24,10 @@ Employee attendance tracker. React 19 + Vite on the front end, Supabase (Postgre
 **Adding an employee always needs a department**, and a **job role** whenever that department has job roles (today only Production). The database enforces this, not just the form. Moving someone to another department asks for the new job role in the same step.
 
 A department head sees an extra **"<Department> team"** tab: today's status and a date-range report/CSV for their own department only. They cannot edit anything.
+
+### My profile and photos
+
+Everyone (employee, department head, CEO, developer) has a **My profile** button (the name chip in the top bar, and *Edit profile* on the employee page). There they can add, change or remove their own **profile picture** (cropped and shrunk in the browser to a 320 px JPEG) and edit their own **first name, last name and birth date**. Nothing else is editable by the employee: the database function `update_my_profile()` only accepts those three fields and the table still has no client write policies. Photos live in the public Storage bucket `avatars` under `<login id>/<random name>.jpg`; the app stores the path in `employee_profiles.avatar_path` through `set_avatar()`. Only the owner or a developer can write to a folder, so a CEO cannot change anyone else's picture. Deleting an employee also removes their photos. Self-edits are written to the audit log and are shown to the developer, not to CEOs.
 
 ### Leaves, calendar and holidays
 
@@ -40,7 +44,7 @@ A department head sees an extra **"<Department> team"** tab: today's status and 
 
 **Calendar tab** (everyone): public holidays are always shown. An employee also sees their own leaves; a department head the leaves of their department; a CEO or developer everyone's leaves plus **birthdays and work anniversaries**. Month view with an agenda list, usable on a phone.
 
-**Birthdays, anniversaries, analytics.** Birth date and start date are entered under *Employees → Details* (or in the add form, or in the profile card) and are visible only to the person, CEOs and developers. Averages only include people whose dates are filled in. 29 February birthdays are celebrated on 28 February in non-leap years; the first anniversary is the first full year.
+**Birthdays, anniversaries, analytics.** Birth date and start date are entered under *Employees → click the name → Edit details* (or in the add form, or in the profile card) and are visible only to the person, CEOs and developers. Averages only include people whose dates are filled in. 29 February birthdays are celebrated on 28 February in non-leap years; the first anniversary is the first full year.
 
 **Public holidays.** The Georgian holidays for **2025–2040** are in the database (New Year's Day and 2 January, Orthodox Christmas, Epiphany, Mother's Day, Women's Day, National Unity Day, Orthodox Good Friday to Easter Monday, Victory Day, St Andrew's Day, Independence Day, Mariamoba, Svetitskhovloba, Giorgoba; Orthodox Easter is calculated). Holidays that fall on a weekend are **not** moved to another day. *Settings → Public Holidays* lets a CEO or developer add, rename and remove days, and re-add the Georgian ones for any year (2000–2099) with one button. Check the list against the official government calendar each December: the government can add or move days off, and those are entered here by hand. 17 May is not pre-filled because the sources disagree on its current status; add it as a custom holiday if the company observes it.
 
@@ -72,6 +76,12 @@ A developer is the technical owner of the app. They get their own **Developer Da
 Rules: CEOs can see developer accounts but **cannot change them** (they show as *Protected*; the database refuses edits, deletion, account-type changes and removing their devices); a developer cannot change their own type, deactivate or delete themselves, so there is always at least one; developers belong to no department but clock in like everyone else; only a developer can correct a developer's attendance. A department or job role can only be deleted when nobody belongs to it. Everything is written to the audit log; the CEO reads only the important, non-developer entries, the developer reads all of it.
 
 **Create the first developer** once, after applying the migrations: create the login in *Authentication → Users → Add user* (tick *Auto Confirm User*), then edit and run `supabase/tools/create_first_developer.sql` in the SQL editor. Use an email that is not the CEO's. All other accounts are then created from the dashboard.
+
+### Online work days and overtime
+
+**Online work day.** Before clocking in, an employee (or CEO / developer) chooses **At the company** or **Online**. An online day can be clocked in and out from any network (Face ID / fingerprint still applies when it is on). It is recorded on the attendance record (`work_mode = 'online'`), written to the audit log (developers read it), shown in its own **violet** colour in the Calendar (the person, their department head, CEOs and developers; layer *Online work days*), as an **Online** pill in *Today*, in *Reports → Records* (and the CSV column *Work mode*) and in the timesheet (violet cell, **ON** column). The mode can only be chosen when clocking in; it cannot be changed afterwards. A CEO or developer can switch the feature off for everyone in **Settings → Clock-in Security → Allow online work days**.
+
+**Overtime.** After the company end time (*Settings → work hours*, 19:00 by default) a person who worked **at the company** sees **Log overtime** on the clock-in card. It works only on the company network (when that rule is on) and only if the day is still open or was closed automatically at the end time. It cancels the automatic clock-out; when the person then clocks out (company network, Face ID if on) the clock-out time is the real one and `overtime_minutes` = clock-out minus the end time (for someone who arrived after the end time, minus the arrival). Worked time includes the overtime. A finished overtime is written to the audit log (*Overtime worked*, an **important** entry, so CEOs see it); it also shows in *Today*, *Records* (summary, pill, CSV *Overtime* columns), the timesheet (dot on the cell, **OT** column) and the person's history. If somebody starts overtime and never clocks out, the automatic clock-out closes the day at midnight with the original end time and counts no overtime (*Overtime not ended*); a CEO can correct the record in Reports and the minutes are recalculated. No overtime on an online day.
 
 ### Clock-in security
 
@@ -113,6 +123,9 @@ npm run dev
    4. `20261012120000_leadership_attendance.sql`, CEOs can read every account and attendance record (developer included) but only a developer can change a developer's attendance or remove their devices. No schema change, no Edge Function change.
    5. `20261013120000_leaves_calendar.sql`, leave requests and allowances, public holidays (Georgian 2025–2040 pre-filled), birth and hire dates, the approval rules. Adds three columns to `company_settings` (24 / 15 / 4 defaults); no Edge Function change.
    6. `20261014120000_profile_details.sql`, office, country, working hours per day and a chosen approver on the profile; one `set_employee_profile()` function that replaces `set_employee_dates()` for the app; `list_leaves()` can be limited to one person; the leave form pre-selects the person's approver. Safe to run more than once; no Edge Function change.
+   7. `20261016120000_audit_scope.sql`, which audit entries a CEO may read (important, non-developer ones only).
+   8. `20261026120000_self_profile_avatars.sql`, profile pictures (`avatars` bucket, `employee_profiles.avatar_path`, `set_avatar()`) and `update_my_profile()` so people can edit their own name and birth date. Redeploy `delete-employee` afterwards.
+   9. `20261027120000_online_days_overtime.sql`, online work days (`attendance.work_mode`, `company_settings.allow_online_days`), overtime (`start_overtime()`, `attendance.overtime_minutes`), the new `clock_in(verification, online)` and an auto clock-out that leaves overtime days open.
 3. If the migration prints `pg_cron is not available`, enable the *pg_cron* extension in the dashboard and run:
    `select cron.schedule('auto-clock-out', '*/10 * * * *', 'select public.auto_clock_out()');`
 4. Check Dashboard → Authentication → URL Configuration: the Site URL and redirect list must include `https://YOUR-SITE/set-password`. If it is missing, Supabase sends the person to the site root instead; the app now still shows the *Create Your Password* page (or *Link problem* for an expired link) in that case, but add the address anyway.
@@ -136,15 +149,17 @@ supabase functions deploy change-email
 
 ### Rollout checklist
 
-0. Apply migrations 3 to 7, deploy `invite-employee`, `delete-employee` and `change-email` again, and create the first developer (see *Developer account*). If you already did this for migration 3, only `supabase db push` is needed for migration 4.
+0. Apply migrations 3 to 9, deploy `invite-employee`, `delete-employee` and `change-email` again, and create the first developer (see *Developer account*). If you already did this for migration 3, only `supabase db push` is needed for migration 4.
 1. Apply migration 2 and deploy the `webauthn` function. Nothing changes for employees yet.
 2. As CEO open the **Employees** tab and set each person's department and (for Production) job role, then pick the five department heads under **Settings**.
 3. **Settings → Company Networks:** while on the office wifi press *Add my current network*. Check that the shown IP is the office's public IP.
 4. Turn on **Require the company network** and test a clock-in from the office and from a phone on mobile data (it must be refused).
-5. **Leaves:** run `supabase db push` for migration 5, push the front end, then as CEO enter each person's **birth date and start date** (Employees → Details; the *Birthdays & Anniversaries* tab lists who is missing), check **Settings → Public Holidays** for the current year and adjust the three allowance defaults if needed.
+5. **Leaves:** run `supabase db push` for migration 5, push the front end, then as CEO enter each person's **birth date and start date** (Employees → click the name → *Edit details*; the *Birthdays & Anniversaries* tab lists who is missing), check **Settings → Public Holidays** for the current year and adjust the three allowance defaults if needed.
 6. **Profile cards and timesheet:** run `supabase db push` for migration 6 and push the front end. Optionally fill in office, country, working hours and approver per person (click a name, *Edit details*).
 7. **Audit scope and new look:** run `supabase db push` for migration 7 (`20261016120000_audit_scope.sql`) and push the front end. No Edge Function needs redeploying.
-8. Ask employees to open the app on their phone and register it (**My Devices → Register this device**), then turn on **Require Face ID / fingerprint**.
+8. **Profile pictures and self-edit (migration 8):** run `supabase db push` for migration 8 (`20261026120000_self_profile_avatars.sql`, creates the `avatars` bucket and its policies), **redeploy `delete-employee`** (`supabase functions deploy delete-employee`, so photos are removed with the person) and push the front end.
+9. **Online days and overtime:** run `supabase db push` for migration 9 (`20261027120000_online_days_overtime.sql`) and push the front end. No Edge Function needs redeploying. Check that the *pg_cron* job `auto-clock-out` is running (it already should be): overtime relies on it.
+10. Ask employees to open the app on their phone and register it (**My Devices → Register this device**), then turn on **Require Face ID / fingerprint**.
 
 ## Tests
 
@@ -157,7 +172,7 @@ npm run build
 PGHOST=localhost PGUSER=postgres bash supabase/tests/run.sh
 ```
 
-The database tests build a mock of Supabase's `auth` schema, apply all seven migrations and assert RLS, department-head scope, job-role integrity, network enforcement (including spoofed headers), one-time biometric tokens, server-side time, corrections, audit entries, auto clock-out (including overnight shifts), the delete order, CEO / developer attendance rules, 300 company networks (single addresses, a range and an IPv6 prefix), and the leave rules: Georgian holidays and Orthodox Easter for 2025–2030 and 2035, working-day counting, year splits, approval authority, overlaps, balances, replacement conflicts, cancel rules, listing scopes, allowances, profile privacy, developer edit rights, audit rows and cascade deletes, and the profile details (office, country, hours, approver, one-person leave lists, approver pre-selection).
+The database tests build a mock of Supabase's `auth` schema, apply all nine migrations and assert RLS, department-head scope, job-role integrity, network enforcement (including spoofed headers), one-time biometric tokens, server-side time, corrections, audit entries, auto clock-out (including overnight shifts), the delete order, CEO / developer attendance rules, 300 company networks (single addresses, a range and an IPv6 prefix), and the leave rules: Georgian holidays and Orthodox Easter for 2025–2030 and 2035, working-day counting, year splits, approval authority, overlaps, balances, replacement conflicts, cancel rules, listing scopes, allowances, profile privacy, developer edit rights, audit rows and cascade deletes, and the profile details (office, country, hours, approver, one-person leave lists, approver pre-selection), self-service profiles (own name / birth date only, photo rules, storage policies, privacy), and online work days and overtime (network rules, Face ID, minutes, auto clock-out, visibility, audit).
 
 CI (`.github/workflows/ci.yml`) runs lint, unit tests, build, the database tests on Postgres 16 and `deno check` on all four Edge Functions.
 

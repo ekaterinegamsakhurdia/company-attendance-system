@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
+import { useProfileCard } from '../hooks/useProfileCard';
 import { CalendarDays } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useLoad } from '../hooks/useLoad';
 import MonthCalendar from '../components/MonthCalendar';
 import { Alert, Field, SectionCard } from '../components/ui';
-import { listHolidays, listLeaves, listProfiles } from '../services/api';
+import { fetchOnlineDays, listHolidays, listLeaves, listProfiles } from '../services/api';
 import { categoryLabel } from '../lib/leaves';
 import { celebrationEvents } from '../lib/celebrations';
 import { monthGrid, parseYmd } from '../lib/calendar';
@@ -16,13 +17,14 @@ const LAYERS = [
   { id: 'pending', label: 'Pending leaves' },
   { id: 'birthday', label: 'Birthdays', adminOnly: true },
   { id: 'anniversary', label: 'Work anniversaries', adminOnly: true },
+  { id: 'online', label: 'Online work days' },
 ];
 
 /**
  * One calendar for everybody.
- *  - employee: public holidays + own leaves
- *  - department head: + the leaves of the department
- *  - CEO / developer: + everyone's leaves, birthdays and work anniversaries
+ *  - employee: public holidays + own leaves + own online work days
+ *  - department head: + the leaves and online days of the department
+ *  - CEO / developer: + everyone's leaves, online days, birthdays and work anniversaries
  */
 export default function CalendarView({ directory, title = 'Calendar' }) {
   const { employee, headDepartment, timezone } = useAuth();
@@ -41,7 +43,9 @@ export default function CalendarView({ directory, title = 'Calendar' }) {
 
   const holidays = useLoad(() => listHolidays({ from, to }), [from, to]);
   const leaves = useLoad(() => listLeaves(isManager ? 'managed' : 'mine', { from, to }), [from, to, isManager]);
-  const profiles = useLoad(listProfiles, [], { enabled: isAdmin });
+  const online = useLoad(() => fetchOnlineDays({ from, to }), [from, to]);
+  const card = useProfileCard();
+  const profiles = useLoad(listProfiles, [card?.version], { enabled: isAdmin });
 
   const employees = directory?.employees ?? [];
   const inDepartment = (id) => !departmentId || employees.find((e) => e.id === id)?.department_id === departmentId;
@@ -67,13 +71,24 @@ export default function CalendarView({ directory, title = 'Calendar' }) {
           .join(', '),
       });
     }
+    for (const o of online.data ?? []) {
+      if (isAdmin && departmentId && employees.find((e) => e.id === o.employee_id)?.department_id !== departmentId) continue;
+      const mine = o.employee_id === employee.id;
+      list.push({
+        id: `o-${o.id}`,
+        kind: 'online',
+        start: o.work_date,
+        title: isManager && !mine ? `${o.employee_name} - online` : 'Working online',
+        subtitle: 'from home',
+      });
+    }
     if (isAdmin && profiles.data) {
       const scoped = employees.filter((e) => inDepartment(e.id));
       list.push(...celebrationEvents({ employees: scoped, profiles: profiles.data, from, to }));
     }
     return list.filter((e) => layers.has(e.kind));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [holidays.data, leaves.data, profiles.data, employees, layers, departmentId, from, to, isAdmin, isManager, employee.id]);
+  }, [holidays.data, leaves.data, online.data, profiles.data, employees, layers, departmentId, from, to, isAdmin, isManager, employee.id]);
 
   const toggle = (id) =>
     setLayers((prev) => {
@@ -84,7 +99,7 @@ export default function CalendarView({ directory, title = 'Calendar' }) {
     });
 
   const visibleLayers = LAYERS.filter((l) => isAdmin || !l.adminOnly);
-  const error = holidays.error || leaves.error || profiles.error;
+  const error = holidays.error || leaves.error || online.error || profiles.error;
 
   return (
     <SectionCard icon={CalendarDays} eyebrow={isAdmin ? 'Everyone' : isManager ? 'Your department' : 'You'} title={title}>

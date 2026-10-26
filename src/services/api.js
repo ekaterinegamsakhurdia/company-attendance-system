@@ -6,7 +6,7 @@ import { friendlyNetworkError } from '../lib/networks';
 const EMPLOYEE_COLUMNS =
   'id, auth_user_id, employee_number, first_name, last_name, email, role, is_active, department_id, job_role_id';
 const ATTENDANCE_COLUMNS =
-  'id, employee_id, employee_number, employee_name, work_date, clock_in, clock_out, clockout_type, worked_minutes, clock_in_biometric, clock_out_biometric';
+  'id, employee_id, employee_number, employee_name, work_date, clock_in, clock_out, clockout_type, worked_minutes, clock_in_biometric, clock_out_biometric, work_mode, overtime_started_at, overtime_minutes';
 
 function unwrap({ data, error }) {
   if (error) throw new Error(error.message || 'Request failed.');
@@ -83,8 +83,14 @@ export async function fetchMyHistory(employeeId, limit = 30) {
 
 // Time is taken by the database, never by the browser. When biometric checks are
 // required, `verificationId` is the one-time token returned by the webauthn function.
-export async function clockIn(verificationId = null) {
-  return unwrap(await supabase.rpc('clock_in', { p_verification: verificationId }));
+/** `online` = a work-from-home day: allowed from any network (Face ID / fingerprint still applies). */
+export async function clockIn(verificationId = null, online = false) {
+  return unwrap(await supabase.rpc('clock_in', { p_verification: verificationId, p_online: online }));
+}
+
+/** After the company end time, on the company network: keep the day open and count the extra time. */
+export async function startOvertime() {
+  return unwrap(await supabase.rpc('start_overtime'));
 }
 
 export async function clockOut(verificationId = null) {
@@ -290,6 +296,21 @@ export async function fetchAttendanceRange({ from, to, employeeId, employeeIds }
   }
 }
 
+/** Online work days in [from, to]; the database returns only the rows the person may see. */
+export async function fetchOnlineDays({ from, to }) {
+  return (
+    unwrap(
+      await supabase
+        .from('attendance')
+        .select('id, employee_id, employee_name, work_date')
+        .eq('work_mode', 'online')
+        .gte('work_date', from)
+        .lte('work_date', to)
+        .order('work_date'),
+    ) ?? []
+  );
+}
+
 export async function saveAttendance({ id = null, employeeId, clockIn, clockOut, reason }) {
   return unwrap(
     await supabase.rpc('ceo_save_attendance', {
@@ -419,7 +440,7 @@ export async function fetchAllBalances(year) {
 /** Profile details (dates, office, country, hours, approver): your own, or everyone's for a CEO / developer. */
 export async function listProfiles() {
   return (
-    unwrap(await supabase.from('employee_profiles').select('employee_id, birth_date, hire_date, office, country, daily_hours, approver_id')) ?? []
+    unwrap(await supabase.from('employee_profiles').select('employee_id, birth_date, hire_date, office, country, daily_hours, approver_id, avatar_path')) ?? []
   );
 }
 
@@ -478,6 +499,57 @@ export async function devDeleteLeave(leaveId) {
 export async function signIn(email, password) {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw new Error(error.message);
+}
+
+/** The signed-in person's own profile row (photo, birth date), or null. */
+export async function fetchMyProfile(employeeId) {
+  const rows = unwrap(await supabase.from('employee_profiles').select('employee_id, birth_date, avatar_path')) ?? [];
+  return rows.find((r) => r.employee_id === employeeId) ?? null;
+}
+
+/** Everyone may change only their own first name, last name and birth date. */
+export async function updateMyProfile({ firstName, lastName, birthDate }) {
+  unwrap(
+    await supabase.rpc('update_my_profile', {
+      p_first_name: firstName,
+      p_last_name: lastName,
+      p_birth_date: birthDate || null,
+    }),
+  );
+}
+
+const AVATAR_BUCKET = 'avatars';
+
+/** Public address of a stored profile photo (path as saved in employee_profiles.avatar_path). */
+export function avatarUrl(path) {
+  if (!path) return null;
+  return supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path).data.publicUrl;
+}
+
+/**
+ * Uploads a new photo (already a small JPEG blob) for `employee` and makes it their photo.
+ * The previous file is deleted afterwards; a failure there is harmless.
+ */
+export async function uploadAvatar(employee, blob, previousPath) {
+  if (!employee.auth_user_id) throw new Error('This person has no login yet, so a photo cannot be stored.');
+  const path = `${employee.auth_user_id}/${crypto.randomUUID()}.jpg`;
+  const { error } = await supabase.storage.from(AVATAR_BUCKET).upload(path, blob, {
+    contentType: 'image/jpeg',
+    cacheControl: '31536000',
+  });
+  if (error) throw new Error(error.message || 'The photo could not be uploaded.');
+  const saved = await supabase.rpc('set_avatar', { p_employee_id: employee.id, p_path: path });
+  if (saved.error) {
+    await supabase.storage.from(AVATAR_BUCKET).remove([path]).catch(() => {});
+    throw new Error(saved.error.message || 'The photo could not be saved.');
+  }
+  if (previousPath) await supabase.storage.from(AVATAR_BUCKET).remove([previousPath]).catch(() => {});
+  return path;
+}
+
+export async function removeAvatar(employee, previousPath) {
+  unwrap(await supabase.rpc('set_avatar', { p_employee_id: employee.id, p_path: null }));
+  if (previousPath) await supabase.storage.from(AVATAR_BUCKET).remove([previousPath]).catch(() => {});
 }
 
 export async function signOut() {

@@ -236,6 +236,22 @@ function SecurityCard() {
           </div>
         </label>
 
+        <label className="la-tile" style={{ cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={settings.allow_online_days !== false}
+            disabled={busy}
+            onChange={(e) => toggle('allow_online_days', e.target.checked)}
+          />
+          <div className="la-tile-text">
+            <strong>Allow online work days</strong>
+            <div className="la-meta">
+              An employee who works from home switches to online mode and clocks in from any network. The day is marked
+              <em> online</em> in the calendar and in every report. Turn this off and everyone has to clock in at the company.
+            </div>
+          </div>
+        </label>
+
         {error && <Alert error>{error}</Alert>}
       </SectionCard>
 

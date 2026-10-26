@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { clockIn, clockOut, fetchAttendanceForDay, fetchMyHistory } from '../services/api';
+import { clockIn, clockOut, fetchAttendanceForDay, fetchMyHistory, startOvertime } from '../services/api';
 import { verifyBiometric } from '../lib/biometric';
 import { todayInTz } from '../lib/time';
 import { useToast } from '../components/Toast';
@@ -40,10 +40,10 @@ export function useMyAttendance(employeeId, timezone, { requireBiometric = false
   }, [refresh]);
 
   const run = useCallback(
-    async (action, perform, successMessage) => {
+    async (action, perform, successMessage, { biometric = true } = {}) => {
       setBusy(true);
       try {
-        const verificationId = requireBiometric ? await verifyBiometric(action) : null;
+        const verificationId = requireBiometric && biometric ? await verifyBiometric(action) : null;
         await perform(verificationId);
         toast.success(successMessage);
       } catch (err) {
@@ -66,7 +66,10 @@ export function useMyAttendance(employeeId, timezone, { requireBiometric = false
     loading,
     busy,
     refresh,
-    onClockIn: () => run('clock_in', clockIn, 'Clocked in.'),
+    onClockIn: (online = false) =>
+      run('clock_in', (v) => clockIn(v, online), online ? 'Clocked in. Today is an online work day.' : 'Clocked in.'),
     onClockOut: () => run('clock_out', clockOut, 'Clocked out.'),
+    // Starting overtime only needs the company network; the clock-out that ends it needs Face ID as usual.
+    onStartOvertime: () => run('overtime', () => startOvertime(), 'Overtime started. Clock out when you finish.', { biometric: false }),
   };
 }

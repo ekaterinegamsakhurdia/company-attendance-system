@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useProfileCard } from '../../hooks/useProfileCard';
 import { ChevronLeft, ChevronRight, Filter, X } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useLoad } from '../../hooks/useLoad';
@@ -38,7 +39,8 @@ export default function ReportsTab({ directory, readOnly = false }) {
   const [status, setStatus] = useState('');
   const [showFilters, setShowFilters] = useState(true);
 
-  const profileRows = useLoad(listProfiles, [], { enabled: !readOnly });
+  const card = useProfileCard();
+  const profileRows = useLoad(listProfiles, [card?.version], { enabled: !readOnly });
   const profiles = useMemo(
     () => (readOnly ? EMPTY_PROFILES : new Map((profileRows.data ?? []).map((p) => [p.employee_id, p]))),
     [readOnly, profileRows.data],

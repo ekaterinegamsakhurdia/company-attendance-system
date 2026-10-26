@@ -64,7 +64,7 @@ export function buildTimesheet({ people, days, attendance, leaves, profiles = ne
   return people.map((person) => {
     const profile = profiles.get(person.id);
     const planned = scheduledHours(profile, defaultHours);
-    const totals = { v: 0, ul: 0, do: 0, hours: 0 };
+    const totals = { v: 0, ul: 0, do: 0, hours: 0, online: 0, overtime: 0 };
     const cells = days.map((d) => {
       const rec = att.get(`${person.id}|${d.date}`);
       const leave = leaveOn.get(`${person.id}|${d.date}`);
@@ -77,7 +77,11 @@ export function buildTimesheet({ people, days, attendance, leaves, profiles = ne
         const open = !rec.clock_out;
         const hours = rec.worked_minutes != null ? rec.worked_minutes / 60 : open ? Math.max(0, (nowMs - new Date(rec.clock_in).getTime()) / 3600000) : 0;
         totals.hours += hours;
-        return { kind: 'worked', hours, open, leave: leave && working ? leave : null, record: rec };
+        const online = rec.work_mode === 'online';
+        const overtimeMinutes = rec.overtime_minutes ?? 0;
+        if (online) totals.online += 1;
+        totals.overtime += overtimeMinutes / 60;
+        return { kind: 'worked', hours, open, online, overtimeMinutes, leave: leave && working ? leave : null, record: rec };
       }
       if (profile?.hire_date && d.date < profile.hire_date) return { kind: 'na', hours: null };
       if (leave && working) return { kind: leave.status === 'approved' ? 'leave' : 'pending', hours: 0, leave };
@@ -94,6 +98,8 @@ export function cellTitle(cell, day, labels = {}) {
   const lines = [];
   if (day.holiday) lines.push(`Public holiday: ${day.holiday}`);
   if (cell.kind === 'worked') lines.push(cell.open ? 'Still clocked in' : `Worked ${formatHours(cell.hours)} h`);
+  if (cell.online) lines.push('Online work day');
+  if (cell.overtimeMinutes > 0) lines.push(`Overtime ${formatHours(cell.overtimeMinutes / 60)} h`);
   if (cell.leave) lines.push(`${labels[cell.leave.category] ?? cell.leave.category} (${cell.leave.status})`);
   if (cell.kind === 'weekend') lines.push('Weekend');
   if (cell.kind === 'absent') lines.push('No attendance record');

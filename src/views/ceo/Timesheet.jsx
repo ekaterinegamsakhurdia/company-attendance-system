@@ -17,7 +17,7 @@ const LEAVE_CLASS = { vacation: 'leave-v', unpaid: 'leave-ul', day_off: 'leave-d
 
 function cellClass(cell) {
   if (cell.kind === 'leave') return LEAVE_CLASS[cell.leave.category] ?? 'leave-v';
-  return `${cell.kind}${cell.open ? ' open' : ''}`;
+  return `${cell.kind}${cell.open ? ' open' : ''}${cell.online ? ' online' : ''}${cell.overtimeMinutes > 0 ? ' ot' : ''}`;
 }
 
 /**
@@ -74,6 +74,8 @@ export default function Timesheet({ people, range, leaveTypes, profiles, everyon
       { label: 'V (vacation)', get: (r) => r.totals.v },
       { label: 'UL (unpaid leave)', get: (r) => r.totals.ul },
       { label: 'DO (day off)', get: (r) => r.totals.do },
+      { label: 'Online days', get: (r) => r.totals.online },
+      { label: 'Overtime hours', get: (r) => formatHours(r.totals.overtime) },
     ];
     downloadCsv(`timesheet_${from}_to_${to}.csv`, toCsv(rows, columns));
   }
@@ -107,6 +109,8 @@ export default function Timesheet({ people, range, leaveTypes, profiles, everyon
           <span><i style={{ background: 'rgba(148,163,184,.28)' }} />Unpaid leave</span>
           <span><i style={{ background: 'rgba(248,113,113,.26)' }} />Day off</span>
           <span><i style={{ background: 'repeating-linear-gradient(135deg, rgba(251,191,36,.3) 0 4px, transparent 4px 8px)' }} />Requested</span>
+          <span><i style={{ background: 'rgba(167,139,250,.32)' }} />Online work day</span>
+          <span><i style={{ background: 'rgba(45,212,191,.9)' }} />Overtime (dot)</span>
           <span><i style={{ background: 'rgba(251,191,36,.12)' }} />No record</span>
           <span>Grey numbers are scheduled hours (today and later); other numbers are hours worked.</span>
         </div>
@@ -125,7 +129,7 @@ export default function Timesheet({ people, range, leaveTypes, profiles, everyon
                   {months.map((m) => (
                     <th key={m.month} colSpan={m.span} scope="colgroup">{months.length === 1 ? '' : m.label}</th>
                   ))}
-                  <th className="la-ts-sum" colSpan={4} scope="colgroup" />
+                  <th className="la-ts-sum" colSpan={6} scope="colgroup" />
                 </tr>
                 <tr className="la-ts-days">
                   <th className="la-ts-name" scope="col"><span className="la-sr">Employee</span></th>
@@ -145,6 +149,8 @@ export default function Timesheet({ people, range, leaveTypes, profiles, everyon
                   <th className="la-ts-sum" scope="col" title="Vacation days">V<div><i className="la-ts-key v" /></div></th>
                   <th className="la-ts-sum" scope="col" title="Unpaid leave days">UL<div><i className="la-ts-key ul" /></div></th>
                   <th className="la-ts-sum" scope="col" title="Days off">DO<div><i className="la-ts-key do" /></div></th>
+                  <th className="la-ts-sum" scope="col" title="Online work days">ON<div><i className="la-ts-key on" /></div></th>
+                  <th className="la-ts-sum" scope="col" title="Overtime hours">OT<div><i className="la-ts-key ot" /></div></th>
                 </tr>
               </thead>
               <tbody>
@@ -162,6 +168,8 @@ export default function Timesheet({ people, range, leaveTypes, profiles, everyon
                     <td className="la-ts-sum">{r.totals.v}</td>
                     <td className="la-ts-sum">{r.totals.ul}</td>
                     <td className="la-ts-sum">{r.totals.do}</td>
+                    <td className="la-ts-sum">{r.totals.online}</td>
+                    <td className="la-ts-sum">{formatHours(r.totals.overtime)}</td>
                   </tr>
                 ))}
               </tbody>

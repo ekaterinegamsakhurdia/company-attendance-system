@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useProfileCard } from '../../hooks/useProfileCard';
 import { BarChart3, Download, Pencil } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useLoad } from '../../hooks/useLoad';
@@ -25,7 +26,8 @@ export default function AnalyticsTab({ directory }) {
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState(null);
 
-  const profiles = useLoad(listProfiles);
+  const card = useProfileCard();
+  const profiles = useLoad(listProfiles, [card?.version]);
   const balances = useLoad(() => fetchAllBalances(year), [year]);
   const away = useLoad(() => listLeaves('managed', { from: today, to: today, status: 'approved' }), [today]);
 

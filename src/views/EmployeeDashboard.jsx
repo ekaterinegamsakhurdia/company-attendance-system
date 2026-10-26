@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { BadgeCheck, Building2, CalendarCheck, CalendarDays, CalendarPlus, Clock, Hash, Palmtree, Plane, User, Users } from 'lucide-react';
+import { BadgeCheck, Building2, Pencil, CalendarCheck, CalendarDays, CalendarPlus, Clock, Hash, Palmtree, Plane, User, Users } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useLoad } from '../hooks/useLoad';
 import { listDepartments, listJobRoles } from '../services/api';
 import MyAttendanceSection from '../components/MyAttendanceSection';
-import { FeatureTile, Hero, SectionCard, Shell, TabLabel, Tabs } from '../components/ui';
+import { FeatureTile, Hero, PillButton, SectionCard, Shell, TabLabel, Tabs } from '../components/ui';
 import { usePendingLeaves } from '../hooks/usePendingLeaves';
 import { canDecide } from '../lib/leaves';
 import HeadTeam from './HeadTeam';
@@ -13,12 +13,14 @@ import CalendarView from './CalendarView';
 import LeavesTab from './ceo/LeavesTab';
 import BookTimeOff from './BookTimeOff';
 import ToApprove from './ToApprove';
+import MyProfile from '../components/MyProfile';
 
 const longDate = () => new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
 export default function EmployeeDashboard() {
-  const { employee, headDepartment, signOut } = useAuth();
+  const { employee, myProfile, headDepartment, signOut } = useAuth();
   const [tab, setTab] = useState('me');
+  const [mine, setMine] = useState(false);
   const departments = useLoad(listDepartments);
   const jobRoles = useLoad(listJobRoles);
 
@@ -43,14 +45,23 @@ export default function EmployeeDashboard() {
   ];
 
   return (
-    <Shell wide={Boolean(headDepartment) || tab === 'calendar'} onLogout={signOut} user={employee} roleLabel={headDepartment ? `${headDepartment.name} head` : 'Employee'}>
+    <Shell wide={Boolean(headDepartment) || tab === 'calendar'} onLogout={signOut} user={employee} roleLabel={headDepartment ? `${headDepartment.name} head` : 'Employee'} avatarPath={myProfile?.avatar_path} onProfile={() => setMine(true)}>
       <Hero eyebrow="Employee Attendance System" title="My workday" subtitle={longDate()} />
       <Tabs tabs={tabs} value={tab} onChange={setTab} />
 
       <div className="la-stack la-panel" key={tab}>
       {tab === 'me' && (
         <>
-          <SectionCard icon={User} eyebrow="Your details" title={`Welcome, ${employee.first_name}!`}>
+          <SectionCard
+            icon={User}
+            eyebrow="Your details"
+            title={`Welcome, ${employee.first_name}!`}
+            action={
+              <PillButton variant="secondary" size="sm" icon={Pencil} onClick={() => setMine(true)}>
+                Edit profile
+              </PillButton>
+            }
+          >
             <div className="la-grid">
               <FeatureTile icon={User}>
                 <strong>Name:</strong> {employee.first_name} {employee.last_name}
@@ -81,6 +92,7 @@ export default function EmployeeDashboard() {
       {headDepartment && tab === 'team' && <HeadTeam department={headDepartment} />}
       {headDepartment && tab === 'requests' && <LeavesTab pending={pending} />}
       </div>
+      {mine && <MyProfile onClose={() => setMine(false)} />}
     </Shell>
   );
 }

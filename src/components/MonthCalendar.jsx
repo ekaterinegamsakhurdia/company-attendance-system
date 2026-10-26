@@ -9,6 +9,7 @@ export const EVENT_KINDS = {
   pending: { label: 'Pending leave' },
   birthday: { label: 'Birthday' },
   anniversary: { label: 'Work anniversary' },
+  online: { label: 'Online work day' },
 };
 
 const MAX_CHIPS = 3;

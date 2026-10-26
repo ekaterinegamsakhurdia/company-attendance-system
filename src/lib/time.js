@@ -79,3 +79,16 @@ export function fromDateTimeLocal(value, tz = FALLBACK_TZ) {
   t = guess - tzOffsetMs(new Date(t), tz);
   return new Date(t).toISOString();
 }
+
+/** Minutes since midnight, in the given zone. */
+export function minutesOfDayInTz(tz = FALLBACK_TZ, now = new Date()) {
+  const [h, m] = now.toLocaleTimeString('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).split(':');
+  return Number(h) * 60 + Number(m);
+}
+
+/** True once the wall clock in `tz` has reached 'HH:MM[:SS]' (same calendar day). */
+export function isAtOrAfterTimeInTz(hhmm, tz = FALLBACK_TZ, now = new Date()) {
+  const m = /^(\d{1,2}):(\d{2})/.exec(hhmm ?? '');
+  if (!m) return false;
+  return minutesOfDayInTz(tz, now) >= Number(m[1]) * 60 + Number(m[2]);
+}

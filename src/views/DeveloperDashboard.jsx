@@ -20,6 +20,7 @@ import MyLeaves from './MyLeaves';
 import BookTimeOff from './BookTimeOff';
 import ToApprove from './ToApprove';
 import ProfileCardProvider from '../components/ProfileCard';
+import MyProfile from '../components/MyProfile';
 
 const TABS = [
   { id: 'accounts', label: 'Accounts', icon: KeyRound },
@@ -45,7 +46,8 @@ const longDate = () => new Date().toLocaleDateString('en-GB', { weekday: 'long',
  * They clock in and out like everyone else (Today tab).
  */
 export default function DeveloperDashboard() {
-  const { employee, signOut } = useAuth();
+  const { employee, myProfile, signOut } = useAuth();
+  const [mine, setMine] = useState(false);
   const [tab, setTab] = useState('accounts');
 
   const employees = useLoad(listEmployees);
@@ -69,7 +71,7 @@ export default function DeveloperDashboard() {
 
   return (
     <ProfileCardProvider directory={directory}>
-    <Shell wide onLogout={signOut} user={employee} roleLabel="Developer">
+    <Shell wide onLogout={signOut} user={employee} roleLabel="Developer" avatarPath={myProfile?.avatar_path} onProfile={() => setMine(true)}>
       <Hero eyebrow="Developer Dashboard" title={`Welcome, ${employee.first_name}.`} subtitle={longDate()} />
 
       <Tabs tabs={TABS.map((t) => (t.id === 'approve' ? { ...t, label: <TabLabel text="To approve" count={waiting} /> } : t))} value={tab} onChange={setTab} />
@@ -91,6 +93,7 @@ export default function DeveloperDashboard() {
         {tab === 'audit' && <AuditTab directory={directory} />}
       </div>
     </Shell>
+    {mine && <MyProfile onClose={() => setMine(false)} onSaved={directory.reloadEmployees} />}
     </ProfileCardProvider>
   );
 }

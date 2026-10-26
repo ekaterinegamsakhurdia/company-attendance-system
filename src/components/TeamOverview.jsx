@@ -33,10 +33,11 @@ export default function TeamOverview({ directory, title = 'Team Overview', onRef
   return (
     <>
       <SectionCard icon={CalendarDays} eyebrow={formatDate(today)} title={title}>
-        <div className="la-grid stats">
+        <div className="la-grid stats five">
           <StatTile value={active.length} label="Active People" />
           <StatTile value={records.length} label="Clocked In Today" />
           <StatTile value={records.filter((r) => !r.clock_out).length} label="Working Now" />
+          <StatTile value={records.filter((r) => r.work_mode === 'online').length} label="Online Today" />
           <StatTile value={records.filter((r) => r.clock_out).length} label="Completed Today" />
         </div>
       </SectionCard>
@@ -79,10 +80,15 @@ export default function TeamOverview({ directory, title = 'Team Overview', onRef
                     ) : (
                       <Pill tone="ok">Working</Pill>
                     )}
+                    {r?.work_mode === 'online' && <Pill tone="online">Online</Pill>}
+                    {r?.overtime_started_at && (r.clock_out ? r.overtime_minutes > 0 : true) && <Pill tone="ot">Overtime</Pill>}
                   </td>
                   <td className="la-td">{r ? formatTime(r.clock_in, timezone) : '-'}</td>
                   <td className="la-td">{r?.clock_out ? formatTime(r.clock_out, timezone) : '-'}</td>
-                  <td className="la-td">{r ? formatWorked(r.worked_minutes) : '-'}</td>
+                  <td className="la-td">
+                    {r ? formatWorked(r.worked_minutes) : '-'}
+                    {r?.overtime_minutes > 0 && <span className="la-meta"> (+{formatWorked(r.overtime_minutes)})</span>}
+                  </td>
                 </tr>
               );
             })}

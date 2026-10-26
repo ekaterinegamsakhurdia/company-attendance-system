@@ -1,14 +1,14 @@
 import { useState } from 'react';
-import { CalendarDays, Fingerprint, Mail, Pencil, Trash2, UserPlus, Users } from 'lucide-react';
+import { useProfileCard } from '../../hooks/useProfileCard';
+import { Fingerprint, Mail, Trash2, UserPlus, Users } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useLoad } from '../../hooks/useLoad';
 import { useToast } from '../../components/Toast';
 import { ConfirmDialog, Modal } from '../../components/Modal';
-import EmployeeDetailsModal from '../../components/EmployeeDetailsModal';
+import Avatar from '../../components/Avatar';
 import PersonLink from '../../components/PersonLink';
 import { Alert, DataTable, Field, Message, Pill, PillButton, SectionCard } from '../../components/ui';
 import {
-  changeEmail,
   deleteEmployee,
   inviteEmployee,
   listDevices,
@@ -16,13 +16,11 @@ import {
   removeDevice,
   resendInvite,
   setEmployeeAccountType,
-  setEmployeeProfile,
   setEmployeeDepartment,
   setEmployeeJobRole,
-  updateEmployee,
+  setEmployeeProfile,
 } from '../../services/api';
 import { formatDateTime, todayInTz } from '../../lib/time';
-import { companyHours } from '../../lib/timesheet';
 
 const EMPTY = {
   role: 'employee',
@@ -133,150 +131,14 @@ function ChooseRoleModal({ employee, department, roles, busy, onConfirm, onCance
 }
 
 /* ------------------------------------------------------------------ */
-/** Developer only: edit everything about one account. */
-function EditEmployeeModal({ employee, departments, jobRoles, isSelf, onClose, onSaved }) {
-  const toast = useToast();
-  const standalone = employee.role !== 'employee'; // CEOs / developers belong to no department
-  const [form, setForm] = useState({
-    employeeNumber: employee.employee_number,
-    firstName: employee.first_name,
-    lastName: employee.last_name,
-    email: employee.email ?? '',
-    departmentId: employee.department_id ?? '',
-    jobRoleId: employee.job_role_id ?? '',
-    isActive: employee.is_active,
-  });
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
-
-  const deptRoles = jobRoles.filter((r) => r.department_id === form.departmentId && (r.is_active || r.id === employee.job_role_id));
-  const hasRoles = deptRoles.some((r) => r.is_active);
-
-  async function handleSubmit(event) {
-    event.preventDefault();
-    setError('');
-    if (!standalone && form.isActive) {
-      if (!form.departmentId) return setError('Choose a department.');
-      if (hasRoles && !form.jobRoleId) return setError('Choose a job role.');
-    }
-    setBusy(true);
-    try {
-      await updateEmployee(employee.id, {
-        ...form,
-        departmentId: standalone ? null : form.departmentId,
-        jobRoleId: standalone ? null : form.jobRoleId,
-      });
-      const emailChanged = form.email.trim().toLowerCase() !== (employee.email ?? '').toLowerCase();
-      if (emailChanged) {
-        try {
-          const res = await changeEmail(employee.id, form.email.trim());
-          toast.success(res.message);
-        } catch (err) {
-          toast.success('Saved.');
-          toast.error(`The e-mail was not changed: ${err.message}`);
-          onSaved();
-          return;
-        }
-      } else {
-        toast.success('Saved.');
-      }
-      onSaved();
-      onClose();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Modal title={`Edit ${employee.first_name} ${employee.last_name}`} onClose={busy ? () => {} : onClose}>
-      <form onSubmit={handleSubmit}>
-        <div className="la-field-grid">
-          <Field label="Employee Number" id="edit-number">
-            <input id="edit-number" className="la-input" value={form.employeeNumber} onChange={set('employeeNumber')} maxLength={32} required />
-          </Field>
-          <Field label="Account type" id="edit-type">
-            <input id="edit-type" className="la-input" value={accountLabel(employee.role)} disabled readOnly />
-          </Field>
-          <Field label="First Name" id="edit-first">
-            <input id="edit-first" className="la-input" value={form.firstName} onChange={set('firstName')} maxLength={100} required />
-          </Field>
-          <Field label="Last Name" id="edit-last">
-            <input id="edit-last" className="la-input" value={form.lastName} onChange={set('lastName')} maxLength={100} required />
-          </Field>
-          {!standalone && (
-            <Field label="Department" id="edit-dept">
-              <select
-                id="edit-dept"
-                className="la-input"
-                value={form.departmentId}
-                onChange={(e) => setForm((f) => ({ ...f, departmentId: e.target.value, jobRoleId: '' }))}
-              >
-                <option value="" disabled>Select department…</option>
-                {departments
-                  .filter((d) => d.is_active || d.id === employee.department_id)
-                  .map((d) => (
-                    <option key={d.id} value={d.id}>{d.name}</option>
-                  ))}
-              </select>
-            </Field>
-          )}
-          {!standalone && hasRoles && (
-            <Field label="Job role" id="edit-role">
-              <select id="edit-role" className="la-input" value={form.jobRoleId} onChange={set('jobRoleId')}>
-                <option value="" disabled>Select job role…</option>
-                {deptRoles.map((r) => (
-                  <option key={r.id} value={r.id}>{r.name}</option>
-                ))}
-              </select>
-            </Field>
-          )}
-        </div>
-        <Field
-          label="Email"
-          id="edit-email"
-          hint="Changing it also changes the address they log in with. If they have not activated their account yet, use Resend invite afterwards."
-        >
-          <input id="edit-email" type="email" className="la-input" value={form.email} onChange={set('email')} required />
-        </Field>
-        <label className="la-tile" style={{ cursor: isSelf ? 'default' : 'pointer' }}>
-          <input
-            type="checkbox"
-            checked={form.isActive}
-            disabled={isSelf}
-            onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
-          />
-          <div className="la-tile-text">
-            <strong>Active</strong>
-            <div className="la-meta">
-              {isSelf ? 'You cannot deactivate your own account.' : 'An inactive account cannot log in or clock in.'}
-            </div>
-          </div>
-        </label>
-        {error && <Alert error>{error}</Alert>}
-        <div className="la-modal-actions">
-          <PillButton variant="secondary" onClick={onClose} disabled={busy}>
-            Cancel
-          </PillButton>
-          <button type="submit" className="la-btn primary" disabled={busy}>
-            {busy ? 'Saving…' : 'Save'}
-          </button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
-/* ------------------------------------------------------------------ */
 export default function EmployeesTab({ directory }) {
   const { employee: me, timezone, settings } = useAuth();
   const isDeveloper = me.role === 'developer';
   const toast = useToast();
   const { employees, departments, jobRoles, reloadEmployees, reloadDepartments } = directory;
   const devices = useLoad(() => listDevices());
-  const profiles = useLoad(listProfiles);
+  const card = useProfileCard();
+  const profiles = useLoad(listProfiles, [card?.version]);
   const today = todayInTz(timezone);
   const profileOf = (id) => (profiles.data ?? []).find((p) => p.employee_id === id);
 
@@ -287,8 +149,6 @@ export default function EmployeesTab({ directory }) {
   const [rowBusy, setRowBusy] = useState(null);
   const [toDelete, setToDelete] = useState(null);
   const [devicesFor, setDevicesFor] = useState(null);
-  const [editing, setEditing] = useState(null);
-  const [datesFor, setDatesFor] = useState(null);
   const [moving, setMoving] = useState(null); // { emp, departmentId }
   const [typeChange, setTypeChange] = useState(null); // { emp, role }
   const [filter, setFilter] = useState('all');
@@ -529,6 +389,8 @@ export default function EmployeesTab({ directory }) {
           </div>
         )}
 
+        <p className="la-meta">Click a name to open the person's card: their details, photo, leave days and the Edit button.</p>
+
         <DataTable
           headers={['Employee #', 'Name', 'Email', ...(isDeveloper ? ['Account type'] : []), 'Department', 'Job role', ...(settings.require_biometric ? ['Devices'] : []), 'Status', 'Actions']}
           minWidth={isDeveloper ? 1200 : 1100}
@@ -545,8 +407,13 @@ export default function EmployeesTab({ directory }) {
               <tr key={emp.id}>
                 <td className="la-td">{emp.employee_number}</td>
                 <td className="la-td">
-                  <PersonLink id={emp.id}>{emp.first_name} {emp.last_name}</PersonLink> {head && <Pill tone="ok">Head</Pill>}{' '}
-                  {emp.role === 'ceo' && <Pill>CEO</Pill>} {emp.role === 'developer' && <Pill tone="warn">Developer</Pill>}
+                  <div className="la-person-cell">
+                    <Avatar person={emp} path={profileOf(emp.id)?.avatar_path} size="sm" />
+                    <span>
+                      <PersonLink id={emp.id}>{emp.first_name} {emp.last_name}</PersonLink> {head && <Pill tone="ok">Head</Pill>}{' '}
+                      {emp.role === 'ceo' && <Pill>CEO</Pill>} {emp.role === 'developer' && <Pill tone="warn">Developer</Pill>}
+                    </span>
+                  </div>
                 </td>
                 <td className="la-td">{emp.email || '-'}</td>
                 {isDeveloper && (
@@ -620,28 +487,18 @@ export default function EmployeesTab({ directory }) {
                 <td className="la-td">
                   {!canManage ? (
                     <span className="la-protected">Protected</span>
+                  ) : isSelf ? (
+                    <span className="la-protected">This is you</span>
                   ) : (
                     <div className="la-toolbar">
-                      {isDeveloper && (
-                        <>
-                          <PillButton variant="secondary" size="sm" icon={Pencil} onClick={() => setEditing(emp)} disabled={busy}>
-                            Edit
-                          </PillButton>
-                        </>
-                      )}
-                      <PillButton variant="secondary" size="sm" icon={CalendarDays} onClick={() => setDatesFor(emp)} disabled={busy}>
-                        Details
-                      </PillButton>
-                      {emp.is_active && !isSelf && (
+                      {emp.is_active && (
                         <PillButton variant="secondary" size="sm" icon={Mail} onClick={() => handleResend(emp)} disabled={busy}>
                           Resend invite
                         </PillButton>
                       )}
-                      {!isSelf && (
-                        <PillButton variant="danger" size="sm" icon={Trash2} onClick={() => setToDelete(emp)} disabled={busy}>
-                          {busy ? 'Working…' : 'Delete'}
-                        </PillButton>
-                      )}
+                      <PillButton variant="danger" size="sm" icon={Trash2} onClick={() => setToDelete(emp)} disabled={busy}>
+                        {busy ? 'Working…' : 'Delete'}
+                      </PillButton>
                     </div>
                   )}
                 </td>
@@ -669,33 +526,6 @@ export default function EmployeesTab({ directory }) {
           busy={rowBusy === moving.emp.id}
           onCancel={() => setMoving(null)}
           onConfirm={confirmMove}
-        />
-      )}
-
-      {datesFor && (
-        <EmployeeDetailsModal
-          employee={datesFor}
-          profile={profileOf(datesFor.id)}
-          directory={{ employees, departments }}
-          today={today}
-          defaultHours={companyHours(settings.work_start_time, settings.work_end_time)}
-          onClose={() => setDatesFor(null)}
-          onSaved={profiles.reload}
-        />
-      )}
-
-      {editing && (
-        <EditEmployeeModal
-          employee={editing}
-          departments={departments}
-          jobRoles={jobRoles}
-          isSelf={editing.id === me.id}
-          onClose={() => setEditing(null)}
-          onSaved={() => {
-            reloadEmployees();
-            reloadDepartments();
-            profiles.reload();
-          }}
         />
       )}
 

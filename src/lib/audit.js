@@ -7,6 +7,7 @@ export const IMPORTANT_ACTIONS = [
   'allowed_networks.insert', 'allowed_networks.delete',
   'company_settings.update',
   'attendance.create', 'attendance.update', 'attendance.delete',
+  'attendance.overtime',
   'leave.cancel',
 ];
 

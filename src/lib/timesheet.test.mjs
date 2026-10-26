@@ -106,3 +106,21 @@ test('approver and people filters', () => {
   assert.equal(hasFilters({ employeeIds: [], teamIds: [], approverIds: [] }), false);
   assert.equal(hasFilters({ employeeIds: [], teamIds: ['d1'], approverIds: [] }), true);
 });
+
+test('online days and overtime are marked and totalled', () => {
+  const people = [emp('a', 'Ann')];
+  const attendance = [
+    { employee_id: 'a', work_date: '2026-10-09', clock_in: 'x', clock_out: 'y', worked_minutes: 480, work_mode: 'online', overtime_minutes: 0 },
+    { employee_id: 'a', work_date: '2026-10-12', clock_in: 'x', clock_out: 'y', worked_minutes: 570, work_mode: 'office', overtime_minutes: 90 },
+    { employee_id: 'a', work_date: '2026-10-13', clock_in: 'x', clock_out: 'y', worked_minutes: 420 },   // old rows without the new columns
+  ];
+  const [row] = buildTimesheet({ people, days, attendance, leaves: [], today: '2026-10-13' });
+  assert.equal(row.cells[0].online, true);
+  assert.equal(row.cells[3].online, false);
+  assert.equal(row.cells[3].overtimeMinutes, 90);
+  assert.equal(row.cells[4].overtimeMinutes, 0);
+  assert.equal(row.totals.online, 1);
+  assert.equal(row.totals.overtime, 1.5);
+  assert.match(cellTitle(row.cells[0], days[0]), /Online work day/);
+  assert.match(cellTitle(row.cells[3], days[3]), /Overtime 1\.5 h/);
+});

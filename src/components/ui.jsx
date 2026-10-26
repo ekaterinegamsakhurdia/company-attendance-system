@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { Layers, LogOut, CheckCircle2, AlertCircle, Inbox } from 'lucide-react';
+import Avatar from './Avatar';
 
 export function Eyebrow({ children }) {
   return <div className="la-eyebrow">{children}</div>;
@@ -211,13 +212,11 @@ export function Tabs({ tabs, value, onChange }) {
   );
 }
 
-const initials = (u) => `${(u?.first_name || '?')[0]}${(u?.last_name || '')[0] || ''}`.toUpperCase();
-
 /**
- * Page frame. `user` ({ first_name, last_name }) and `roleLabel` fill the account chip in the top bar;
- * `bare` drops the bar for sign-in style pages.
+ * Page frame. `user` ({ first_name, last_name }), `avatarPath` and `roleLabel` fill the account chip in the top bar
+ * (a button that opens "My profile" when `onProfile` is given); `bare` drops the bar for sign-in style pages.
  */
-export function Shell({ children, wide, onLogout, user, roleLabel, bare }) {
+export function Shell({ children, wide, onLogout, user, roleLabel, avatarPath, onProfile, bare }) {
   return (
     <div className={`la-page${bare ? ' bare' : ''}`}>
       {!bare && (
@@ -231,16 +230,27 @@ export function Shell({ children, wide, onLogout, user, roleLabel, bare }) {
             </div>
             <div className="la-nav-right">
               {user && (
-                <div className="la-user" title={`${user.first_name} ${user.last_name}`}>
-                  <span className="la-avatar" aria-hidden="true">
-                    {initials(user)}
-                  </span>
-                  <span className="la-user-text">
-                    <span className="la-user-name">
-                      {user.first_name} {user.last_name}
-                    </span>
-                    {roleLabel && <span className="la-user-role">{roleLabel}</span>}
-                  </span>
+                <div className="la-user">
+                  {(() => {
+                    const content = (
+                      <>
+                        <Avatar person={user} path={avatarPath} size="sm" />
+                        <span className="la-user-text">
+                          <span className="la-user-name">
+                            {user.first_name} {user.last_name}
+                          </span>
+                          {roleLabel && <span className="la-user-role">{roleLabel}</span>}
+                        </span>
+                      </>
+                    );
+                    return onProfile ? (
+                      <button type="button" className="la-user-btn" onClick={onProfile} aria-label="My profile" title="My profile">
+                        {content}
+                      </button>
+                    ) : (
+                      <span className="la-user-btn static">{content}</span>
+                    );
+                  })()}
                 </div>
               )}
               {onLogout && (

@@ -33,6 +33,9 @@ export default function MyAttendanceSection({ showHistory = true, historyTitle }
         busy={mine.busy}
         onClockIn={mine.onClockIn}
         onClockOut={mine.onClockOut}
+        onStartOvertime={mine.onStartOvertime}
+        allowOnline={settings.allow_online_days !== false}
+        workEnd={settings.work_end_time}
         requireNetwork={requireNetwork}
         network={network.status}
         onRecheckNetwork={network.refresh}

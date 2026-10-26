@@ -2,9 +2,8 @@ import { useState } from 'react';
 import { Cake, CalendarClock, PartyPopper, Pencil } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useLoad } from '../../hooks/useLoad';
-import EmployeeDetailsModal from '../../components/EmployeeDetailsModal';
 import PersonLink from '../../components/PersonLink';
-import { companyHours } from '../../lib/timesheet';
+import { useProfileCard } from '../../hooks/useProfileCard';
 import { Alert, DataTable, Field, Message, PillButton, SectionCard } from '../../components/ui';
 import { listProfiles } from '../../services/api';
 import { missingDates, profileMap, serviceText, upcomingCelebrations } from '../../lib/celebrations';
@@ -21,11 +20,11 @@ const inText = (n) => (n === 0 ? 'Today' : n === 1 ? 'Tomorrow' : `in ${n} days`
 
 /** Upcoming birthdays and work anniversaries, plus who is still missing a date. */
 export default function CelebrationsTab({ directory }) {
-  const { employee: me, timezone, settings } = useAuth();
+  const { employee: me, timezone } = useAuth();
+  const card = useProfileCard();
   const today = todayInTz(timezone);
-  const profiles = useLoad(listProfiles);
+  const profiles = useLoad(listProfiles, [card?.version]);
   const [windowDays, setWindowDays] = useState(90);
-  const [editing, setEditing] = useState(null);
 
   const employees = directory.employees;
   const deptName = (id) => directory.departments.find((d) => d.id === id)?.name ?? '-';
@@ -109,7 +108,7 @@ export default function CelebrationsTab({ directory }) {
                 </td>
                 <td className="la-td">
                   {canEdit(e) ? (
-                    <PillButton variant="secondary" size="sm" icon={Pencil} onClick={() => setEditing(e)}>
+                    <PillButton variant="secondary" size="sm" icon={Pencil} onClick={() => card.open(e.id, { edit: true })}>
                       Add dates
                     </PillButton>
                   ) : (
@@ -122,17 +121,6 @@ export default function CelebrationsTab({ directory }) {
         </SectionCard>
       )}
 
-      {editing && (
-        <EmployeeDetailsModal
-          employee={editing}
-          profile={byId.get(editing.id)}
-          directory={directory}
-          today={today}
-          defaultHours={companyHours(settings.work_start_time, settings.work_end_time)}
-          onClose={() => setEditing(null)}
-          onSaved={profiles.reload}
-        />
-      )}
     </>
   );
 }

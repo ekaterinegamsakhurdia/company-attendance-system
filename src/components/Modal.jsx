@@ -2,7 +2,8 @@ import { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import { PillButton } from './ui';
 
-export function Modal({ title, description, onClose, wide, children }) {
+/** `bare` hides the standard heading: the content brings its own header (the close button stays). */
+export function Modal({ title, description, onClose, wide, bare, children }) {
   const ref = useRef(null);
   const closeRef = useRef(onClose);
   useEffect(() => {
@@ -31,16 +32,22 @@ export function Modal({ title, description, onClose, wide, children }) {
 
   return (
     <div className="la-overlay">
-      <div className={`la-modal${wide ? ' wide' : ''}`} role="dialog" aria-modal="true" aria-label={title} ref={ref}>
-        <div className="la-modal-head">
-          <div>
-            <h2>{title}</h2>
-            {description && <p className="la-meta">{description}</p>}
-          </div>
-          <button type="button" className="la-modal-x" aria-label="Close dialog" onClick={() => closeRef.current()}>
+      <div className={`la-modal${wide ? ' wide' : ''}${bare ? ' bare' : ''}`} role="dialog" aria-modal="true" aria-label={title} ref={ref}>
+        {bare ? (
+          <button type="button" className="la-modal-x floating" aria-label="Close dialog" onClick={() => closeRef.current()}>
             <X size={18} aria-hidden="true" />
           </button>
-        </div>
+        ) : (
+          <div className="la-modal-head">
+            <div>
+              <h2>{title}</h2>
+              {description && <p className="la-meta">{description}</p>}
+            </div>
+            <button type="button" className="la-modal-x" aria-label="Close dialog" onClick={() => closeRef.current()}>
+              <X size={18} aria-hidden="true" />
+            </button>
+          </div>
+        )}
         {children}
       </div>
     </div>

@@ -59,6 +59,19 @@ serve(async (req) => {
     }
   }
 
+  // Profile photos live in avatars/<auth_user_id>/. Remove them (best effort:
+  // a leftover photo never blocks the deletion and cannot be reached any more).
+  if (target.auth_user_id) {
+    try {
+      const folder = target.auth_user_id as string;
+      const { data: files } = await ctx.admin.storage.from("avatars").list(folder, { limit: 100 });
+      const paths = (files ?? []).map((f: { name: string }) => `${folder}/${f.name}`);
+      if (paths.length) await ctx.admin.storage.from("avatars").remove(paths);
+    } catch (e) {
+      console.error("Avatar cleanup error (ignored):", e);
+    }
+  }
+
   // 2. Remove the login.
   if (target.auth_user_id) {
     const { error } = await ctx.admin.auth.admin.deleteUser(target.auth_user_id);

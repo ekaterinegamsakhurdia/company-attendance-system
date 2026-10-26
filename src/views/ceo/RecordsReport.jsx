@@ -42,7 +42,13 @@ export default function RecordsReport({ directory, readOnly = false, from, to, e
   const totals = useMemo(() => {
     const minutes = rows.reduce((sum, r) => sum + (r.worked_minutes ?? 0), 0);
     const people = new Set(rows.map((r) => r.employee_id ?? r.employee_name));
-    return { minutes, people: people.size, open: rows.filter((r) => !r.clock_out).length };
+    return {
+      minutes,
+      people: people.size,
+      open: rows.filter((r) => !r.clock_out).length,
+      online: rows.filter((r) => r.work_mode === 'online').length,
+      overtime: rows.reduce((sum, r) => sum + (r.overtime_minutes ?? 0), 0),
+    };
   }, [rows]);
 
   const label = (r) => (r.employee_id ? r.employee_name : `${r.employee_name ?? 'Unknown'} (deleted)`);
@@ -73,11 +79,14 @@ export default function RecordsReport({ directory, readOnly = false, from, to, e
       { label: 'Biometric at clock-in', get: (r) => yesNo(r.clock_in_biometric) },
       { label: 'Biometric at clock-out', get: (r) => (r.clock_out ? yesNo(r.clock_out_biometric) : '') },
       { label: 'Account type', get: (r) => ACCOUNT_LABEL[emp(r)?.role] ?? '' },
+      { label: 'Work mode', get: (r) => (r.work_mode === 'online' ? 'online' : 'office') },
+      { label: 'Overtime (minutes)', get: (r) => r.overtime_minutes ?? 0 },
+      { label: 'Overtime (h:mm)', get: (r) => ((r.overtime_minutes ?? 0) > 0 ? formatWorked(r.overtime_minutes) : '') },
     ]);
     downloadCsv(`attendance_${from}_to_${to}.csv`, csv);
   }
 
-  const headers = ['Date', 'Employee', 'Department', 'Clock In', 'Clock Out', 'Worked', 'Type', ...(readOnly ? [] : [''])];
+  const headers = ['Date', 'Employee', 'Department', 'Clock In', 'Clock Out', 'Worked', 'Type', 'Notes', ...(readOnly ? [] : [''])];
 
   return (
     <>
@@ -107,6 +116,8 @@ export default function RecordsReport({ directory, readOnly = false, from, to, e
             <span><strong>{totals.people}</strong>employees</span>
             <span><strong>{formatWorked(totals.minutes)}</strong>total worked</span>
             {totals.open > 0 && <span><strong>{totals.open}</strong>still open</span>}
+            {totals.online > 0 && <span><strong>{totals.online}</strong>online days</span>}
+            {totals.overtime > 0 && <span><strong>{formatWorked(totals.overtime)}</strong>overtime</span>}
           </div>
         )}
 
@@ -116,7 +127,7 @@ export default function RecordsReport({ directory, readOnly = false, from, to, e
           <Message>No attendance records in this period.</Message>
         ) : (
           rangeValid && (
-            <DataTable headers={headers} minWidth={820}>
+            <DataTable headers={headers} minWidth={940}>
               {rows.map((r) => {
                 const e = emp(r);
                 const role = roleName(e?.job_role_id);
@@ -135,6 +146,11 @@ export default function RecordsReport({ directory, readOnly = false, from, to, e
                     <td className="la-td">{r.clock_out ? formatTime(r.clock_out, timezone) : <Pill tone="ok">Working</Pill>}</td>
                     <td className="la-td">{formatWorked(r.worked_minutes)}</td>
                     <td className="la-td">{r.clockout_type ? (r.clockout_type === 'automatic' ? <Pill tone="warn">Auto</Pill> : 'Manual') : '-'}</td>
+                    <td className="la-td">
+                      {r.work_mode === 'online' && <Pill tone="online">Online</Pill>}
+                      {(r.overtime_minutes ?? 0) > 0 && <Pill tone="ot">+{formatWorked(r.overtime_minutes)} overtime</Pill>}
+                      {r.overtime_started_at && !r.clock_out && <Pill tone="ot">Overtime running</Pill>}
+                    </td>
                     {!readOnly && (
                       <td className="la-td">
                         {canEdit(r) ? (

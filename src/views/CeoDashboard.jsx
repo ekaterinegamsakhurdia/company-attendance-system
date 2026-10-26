@@ -19,6 +19,7 @@ import MyLeaves from './MyLeaves';
 import BookTimeOff from './BookTimeOff';
 import ToApprove from './ToApprove';
 import ProfileCardProvider from '../components/ProfileCard';
+import MyProfile from '../components/MyProfile';
 
 const TABS = [
   { id: 'today', label: 'Today', icon: Clock },
@@ -38,7 +39,8 @@ const TABS = [
 const longDate = () => new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
 export default function CeoDashboard() {
-  const { employee, signOut } = useAuth();
+  const { employee, myProfile, signOut } = useAuth();
+  const [mine, setMine] = useState(false);
   const [tab, setTab] = useState('today');
 
   // Shared by several tabs, so it is loaded once here.
@@ -60,7 +62,7 @@ export default function CeoDashboard() {
 
   return (
     <ProfileCardProvider directory={directory}>
-    <Shell wide onLogout={signOut} user={employee} roleLabel="CEO">
+    <Shell wide onLogout={signOut} user={employee} roleLabel="CEO" avatarPath={myProfile?.avatar_path} onProfile={() => setMine(true)}>
       <Hero eyebrow="CEO Dashboard" title={`Welcome, ${employee.first_name}.`} subtitle={longDate()} />
 
       <Tabs tabs={TABS.map((t) => (t.id === 'approve' ? { ...t, label: <TabLabel text="To approve" count={waiting} /> } : t))} value={tab} onChange={setTab} />
@@ -81,6 +83,7 @@ export default function CeoDashboard() {
         {tab === 'audit' && <AuditTab directory={directory} />}
       </div>
     </Shell>
+    {mine && <MyProfile onClose={() => setMine(false)} onSaved={directory.reloadEmployees} />}
     </ProfileCardProvider>
   );
 }
