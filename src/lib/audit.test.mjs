@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { AUDIT_FILTERS, IMPORTANT_ACTIONS, isImportantAction } from './audit.js';
 
 test('important actions are adds, removals and structural changes', () => {
-  for (const a of ['employee.invite', 'employee.delete', 'departments.delete', 'allowed_networks.insert', 'attendance.delete']) assert.ok(isImportantAction(a), a);
+  for (const a of ['employee.create', 'employee.invite', 'employee.delete', 'departments.delete', 'allowed_networks.insert', 'attendance.delete']) assert.ok(isImportantAction(a), a);
   for (const a of ['leave.request', 'leave.approve', 'attendance.auto_clock_out', 'webauthn.remove', 'employee.profile', 'leave.allowance', 'holidays.seed']) assert.ok(!isImportantAction(a), a);
   assert.equal(new Set(IMPORTANT_ACTIONS).size, IMPORTANT_ACTIONS.length);
 });

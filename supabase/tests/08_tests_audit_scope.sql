@@ -58,6 +58,7 @@ do $$ begin
   if (select count(*) from public.audit_logs) <> 0 then raise exception 'head sees audit'; end if;
   if public.audit_is_important('leave.request') then raise exception 'leave.request is not important'; end if;
   if not public.audit_is_important('employee.delete') then raise exception 'employee.delete is important'; end if;
+  if not public.audit_is_important('employee.create') then raise exception 'employee.create is important'; end if;
 end $$;
 reset role;
 

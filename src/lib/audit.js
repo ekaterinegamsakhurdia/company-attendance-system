@@ -1,7 +1,7 @@
 // Which audit entries are "important" (mirrors public.audit_is_important in migration 7).
 // The database decides what a CEO may read; this list is only used for the developer's filter.
 export const IMPORTANT_ACTIONS = [
-  'employee.invite', 'employee.delete', 'employee.role', 'employee.department', 'employee.job_role',
+  'employee.create', 'employee.invite', 'employee.delete', 'employee.role', 'employee.department', 'employee.job_role',
   'department.head', 'departments.insert', 'departments.delete',
   'job_roles.insert', 'job_roles.delete',
   'allowed_networks.insert', 'allowed_networks.delete',

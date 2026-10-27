@@ -15,7 +15,7 @@ Employee attendance tracker. React 19 + Vite on the front end, Supabase (Postgre
 | Analytics | Team count, average age, average length of service, people on leave today; used / left days per person and per leave type; per-person allowance; CSV |
 | My leaves | The CEO's own leave requests (approved by another CEO or the developer) |
 | Reports | Date-range / department / employee report, CSV export, correct or add records (reason required, audited) |
-| Employees | Add + invite, resend invitation, department, job role, registered devices, delete. **Click a name to open the person's card**: details, leave days and the *Edit details* form are all there (no separate Edit / Details buttons) |
+| Employees | Add (saved without sending any e-mail; the row stays faded with a *Not invited* badge), **Send invitation** whenever you want, then **Send login link** (re-sends the invitation, or a password-reset link if the person already has a password), department, job role, registered devices, delete. **Click a name to open the person's card**: details, leave days and the *Edit details* form are all there (no separate Edit / Details buttons) |
 | Settings | Company name, time zone, work hours, **yearly leave allowances**, **public holidays**, **clock-in security**, **company networks**, department heads, job roles |
 | Audit Log (*Important changes*) | Only the important entries: people added or removed, account / department / job-role changes, networks, company settings, attendance corrections and cancelled leaves. Routine activity and anything a developer did is **not** shown to CEOs (enforced by the database) |
 
@@ -154,7 +154,7 @@ supabase functions deploy change-email
 
 ### Rollout checklist
 
-0. Apply migrations 3 to 10, deploy `invite-employee`, `delete-employee` and `change-email` again, and create the first developer (see *Developer account*). If you already did this for migration 3, only `supabase db push` is needed for migration 4.
+0. Apply migrations 3 to 11, deploy `invite-employee`, `delete-employee` and `change-email` again, and create the first developer (see *Developer account*). If you already did this for migration 3, only `supabase db push` is needed for migration 4.
 1. Apply migration 2 and deploy the `webauthn` function. Nothing changes for employees yet.
 2. As CEO open the **Employees** tab and set each person's department and (for Production) job role, then pick the five department heads under **Settings**.
 3. **Settings → Company Networks:** while on the office wifi press *Add my current network*. Check that the shown IP is the office's public IP.
@@ -165,7 +165,9 @@ supabase functions deploy change-email
 8. **Profile pictures and self-edit (migration 8):** run `supabase db push` for migration 8 (`20261026120000_self_profile_avatars.sql`, creates the `avatars` bucket and its policies), **redeploy `delete-employee`** (`supabase functions deploy delete-employee`, so photos are removed with the person) and push the front end.
 9. **Online days and overtime:** run `supabase db push` for migration 9 (`20261027120000_online_days_overtime.sql`) and push the front end. No Edge Function needs redeploying. Check that the *pg_cron* job `auto-clock-out` is running (it already should be): overtime relies on it.
 10. **Office map:** run `supabase db push` for migration 10 (`20261028120000_office_today.sql`) and push the front end. Nothing else to configure; people see it on Today / My attendance.
-11. Ask employees to open the app on their phone and register it (**My Devices → Register this device**), then turn on **Require Face ID / fingerprint**.
+11. **Send login link fix:** redeploy `invite-employee` (`supabase functions deploy invite-employee`) and push the front end. No migration. The button now sends an invitation to people who never signed in, and a password-reset link to people who already did (for example after forgetting the password). Supabase only allows one auth e-mail per address about every minute; the CEO sees a clear "wait a minute" message if it is hit. Employees can also reset on their own with *Forgot your password?* on the login page.
+12. **Add first, invite later (migration 11):** run `supabase db push` for migration 11 (`20261029120000_audit_employee_create.sql`), redeploy `invite-employee` and `change-email`, and push the front end. *Add Employee* now only saves the person (no login, no e-mail); the faded row's **Send invitation** button creates the login and sends the e-mail whenever you choose. After they set a password they are a normal employee.
+13. Ask employees to open the app on their phone and register it (**My Devices → Register this device**), then turn on **Require Face ID / fingerprint**.
 
 ## Tests
 
@@ -178,7 +180,7 @@ npm run build
 PGHOST=localhost PGUSER=postgres bash supabase/tests/run.sh
 ```
 
-The database tests build a mock of Supabase's `auth` schema, apply all ten migrations and assert RLS, department-head scope, job-role integrity, network enforcement (including spoofed headers), one-time biometric tokens, server-side time, corrections, audit entries, auto clock-out (including overnight shifts), the delete order, CEO / developer attendance rules, 300 company networks (single addresses, a range and an IPv6 prefix), and the leave rules: Georgian holidays and Orthodox Easter for 2025–2030 and 2035, working-day counting, year splits, approval authority, overlaps, balances, replacement conflicts, cancel rules, listing scopes, allowances, profile privacy, developer edit rights, audit rows and cascade deletes, and the profile details (office, country, hours, approver, one-person leave lists, approver pre-selection), self-service profiles (own name / birth date only, photo rules, storage policies, privacy), online work days and overtime (network rules, Face ID, minutes, auto clock-out, visibility, audit), and the office map (who appears, privacy of absent people, clock-out removes the bubble).
+The database tests build a mock of Supabase's `auth` schema, apply all eleven migrations and assert RLS, department-head scope, job-role integrity, network enforcement (including spoofed headers), one-time biometric tokens, server-side time, corrections, audit entries, auto clock-out (including overnight shifts), the delete order, CEO / developer attendance rules, 300 company networks (single addresses, a range and an IPv6 prefix), and the leave rules: Georgian holidays and Orthodox Easter for 2025–2030 and 2035, working-day counting, year splits, approval authority, overlaps, balances, replacement conflicts, cancel rules, listing scopes, allowances, profile privacy, developer edit rights, audit rows and cascade deletes, and the profile details (office, country, hours, approver, one-person leave lists, approver pre-selection), self-service profiles (own name / birth date only, photo rules, storage policies, privacy), online work days and overtime (network rules, Face ID, minutes, auto clock-out, visibility, audit), and the office map (who appears, privacy of absent people, clock-out removes the bubble).
 
 CI (`.github/workflows/ci.yml`) runs lint, unit tests, build, the database tests on Postgres 16 and `deno check` on all four Edge Functions.
 

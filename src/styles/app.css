@@ -238,6 +238,8 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary); widt
 .la-table tbody tr:last-child .la-td { border-bottom: none; }
 .la-table tbody tr:hover .la-td { background: rgba(47,140,255,0.06); }
 .la-td { vertical-align: middle; }
+.la-table tbody tr.la-row-pending .la-td:not(:last-child) { opacity: 0.5; }
+.la-table tbody tr.la-row-pending:hover .la-td:not(:last-child) { opacity: 0.85; }
 .la-td .la-toolbar { flex-wrap: nowrap; align-items: center; gap: 8px; }
 .la-table .la-td select.la-input.compact { min-width: 130px; }
 .la-td .la-input.compact, .la-td select.la-input { padding-top: 7px; padding-bottom: 7px; font-size: 13.5px; }

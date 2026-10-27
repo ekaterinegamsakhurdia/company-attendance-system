@@ -180,6 +180,7 @@ export default function EmployeesTab({ directory }) {
         email: form.email,
         departmentId: standaloneForm ? null : form.departmentId,
         jobRoleId: standaloneForm ? null : form.jobRoleId || null,
+        sendNow: false, // save the person first; the invitation is sent later from the list
       });
       toast.success(res.message);
       if (form.birthDate || form.hireDate) {
@@ -187,7 +188,7 @@ export default function EmployeesTab({ directory }) {
           await setEmployeeProfile(res.employeeId, { birthDate: form.birthDate, hireDate: form.hireDate, office: '', country: '', dailyHours: '', approverId: '' });
           profiles.reload();
         } catch (err) {
-          toast.error(`The account was created, but the dates were not saved: ${err.message}`);
+          toast.error(`${form.firstName} was added, but the dates were not saved: ${err.message}`);
         }
       }
       setForm(EMPTY);
@@ -213,7 +214,11 @@ export default function EmployeesTab({ directory }) {
     }
   }
 
-  const handleResend = (emp) => withRow(emp.id, () => resendInvite(emp.id).then((r) => toast.success(r.message)));
+  const handleResend = (emp) =>
+    withRow(emp.id, () => resendInvite(emp.id).then((r) => {
+      toast.success(r.message);
+      reloadEmployees(); // the row is no longer faded once the invitation is out
+    }));
 
   const afterOrgChange = (message) => () => {
     toast.success(message);
@@ -366,12 +371,12 @@ export default function EmployeesTab({ directory }) {
             {!standaloneForm && form.departmentId && formRoles.length === 0 && (
               <p className="la-meta">This department has no job roles yet{isDeveloper ? '. You can add some under Structure.' : ', so none is needed.'}</p>
             )}
-            <Field label="Email" id="new-email" hint="An invitation to set a password is sent to this address.">
+            <Field label="Email" id="new-email" hint="Nothing is sent now. Use Send invitation in the list when you want them to get their login e-mail.">
               <input id="new-email" type="email" className="la-input" value={form.email} onChange={set('email')} placeholder="employee@example.com" required />
             </Field>
             {formError && <Alert error>{formError}</Alert>}
             <button type="submit" className="la-btn primary block" disabled={adding} style={{ marginTop: 16 }}>
-              {adding ? 'Sending invitation…' : 'Add & Send Invitation'}
+              {adding ? 'Saving…' : isDeveloper ? 'Save account' : 'Save employee'}
             </button>
           </form>
         )}
@@ -403,8 +408,9 @@ export default function EmployeesTab({ directory }) {
             const roles = rolesFor(emp.department_id, emp.job_role_id);
             const myDevices = deviceList(emp.id);
             const canManage = isDeveloper || !(standalone || isSelf);
+            const notInvited = !emp.auth_user_id; // saved, but no invitation e-mail has been sent yet
             return (
-              <tr key={emp.id}>
+              <tr key={emp.id} className={notInvited ? 'la-row-pending' : undefined}>
                 <td className="la-td">{emp.employee_number}</td>
                 <td className="la-td">
                   <div className="la-person-cell">
@@ -482,7 +488,7 @@ export default function EmployeesTab({ directory }) {
                   </td>
                 )}
                 <td className="la-td">
-                  {emp.is_active ? <Pill tone="ok">Active</Pill> : <Pill tone="warn">Inactive</Pill>}
+                  {!emp.is_active ? <Pill tone="warn">Inactive</Pill> : notInvited ? <Pill>Not invited</Pill> : <Pill tone="ok">Active</Pill>}
                 </td>
                 <td className="la-td">
                   {!canManage ? (
@@ -492,8 +498,17 @@ export default function EmployeesTab({ directory }) {
                   ) : (
                     <div className="la-toolbar">
                       {emp.is_active && (
-                        <PillButton variant="secondary" size="sm" icon={Mail} onClick={() => handleResend(emp)} disabled={busy}>
-                          Resend invite
+                        <PillButton
+                          variant={notInvited ? 'primary' : 'secondary'}
+                          size="sm"
+                          icon={Mail}
+                          onClick={() => handleResend(emp)}
+                          disabled={busy}
+                          title={notInvited
+                            ? 'Sends the invitation e-mail so they can set a password and log in.'
+                            : 'Sends the invitation again, or a password-reset link if they already have a password (for example when they forgot it).'}
+                        >
+                          {notInvited ? 'Send invitation' : 'Send login link'}
                         </PillButton>
                       )}
                       <PillButton variant="danger" size="sm" icon={Trash2} onClick={() => setToDelete(emp)} disabled={busy}>

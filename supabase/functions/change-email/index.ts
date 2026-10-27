@@ -70,8 +70,10 @@ serve(async (req) => {
     { old_email: oldEmail, new_email: email, had_login: Boolean(target.auth_user_id) });
 
   return {
-    message: target.auth_user_id && !activated
-      ? "E-mail changed. They have not activated their account yet, so press Resend invite to send the link to the new address."
+    message: !target.auth_user_id
+      ? "E-mail changed. They have not been invited yet; the invitation will go to the new address."
+      : !activated
+      ? "E-mail changed. They have not activated their account yet, so press Send login link to send it to the new address."
       : "E-mail changed. They now log in with the new address.",
     employeeId: target.id,
   };

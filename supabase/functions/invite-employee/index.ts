@@ -1,12 +1,18 @@
-// Creates an employee and sends the invitation e-mail, or re-sends it.
+// Creates an employee and sends the invitation e-mail, or sends / re-sends it later.
 //
-// Body (create + invite):
-//   { employeeNumber, firstName, lastName, email, departmentId, jobRoleId?, role? }
+// Body (create, optionally + invite):
+//   { employeeNumber, firstName, lastName, email, departmentId, jobRoleId?, role?, sendNow? }
+//   - sendNow: false only saves the person; no e-mail is sent and no login exists yet.
+//     The CEO sends the invitation whenever they like with { employeeId } (below).
+//     Omitted or true keeps the old behaviour: create and invite in one step.
 //   - role defaults to "employee". An employee MUST have a department, and a job role
 //     whenever that department has job roles (the database enforces this too).
 //   - role "ceo" or "developer" can only be created by a developer and needs no department.
-// Body (resend for an existing employee):
+// Body (send a login link for an existing employee):
 //   { employeeId }
+//   - no login yet     -> the first invitation is sent (the login account is created now)
+//   - never signed in  -> the invitation is sent again
+//   - already signed in (forgot the password) -> a password-reset link is sent
 //
 // Create + invite is all-or-nothing: if the invitation cannot be sent the
 // employee row that was just created is removed again.
@@ -22,6 +28,7 @@ import {
   serve,
   type CeoContext,
 } from "../_shared/common.ts";
+import { friendlyMailError, isAlreadyRegistered, isRateLimit, planResend } from "../_shared/resend.js";
 
 type EmployeeRow = {
   id: string;
@@ -63,12 +70,21 @@ async function sendInvite(ctx: CeoContext, emp: EmployeeRow, email: string) {
   });
   if (error) {
     console.error("Invite error:", error.message);
-    throw new HttpError(400, error.message);
+    throw new HttpError(isRateLimit(error.message) ? 429 : 400, friendlyMailError(error.message));
   }
   if (!data?.user?.id) {
     throw new HttpError(500, "Invitation was sent but no user id was returned.");
   }
   return data.user.id;
+}
+
+// Password-reset e-mail for an account that already exists (the "I forgot my password" case).
+async function sendReset(ctx: CeoContext, email: string) {
+  const { error } = await ctx.admin.auth.resetPasswordForEmail(email, { redirectTo: redirectUrl() });
+  if (error) {
+    console.error("Reset error:", error.message);
+    throw new HttpError(isRateLimit(error.message) ? 429 : 400, friendlyMailError(error.message));
+  }
 }
 
 async function createAndInvite(ctx: CeoContext, body: Record<string, unknown>) {
@@ -134,6 +150,23 @@ async function createAndInvite(ctx: CeoContext, body: Record<string, unknown>) {
 
   const emp = created as EmployeeRow;
 
+  // 1b. Only saving the person: no e-mail, no login account. They are invited later.
+  if (body.sendNow === false) {
+    await audit(ctx, "employee.create", emp.id, `Added ${firstName} ${lastName} (not invited yet)`, {
+      employee_number: employeeNumber,
+      role,
+      email,
+      department_id: departmentId,
+      job_role_id: jobRoleId,
+    });
+    return {
+      message: `${firstName} ${lastName} was added. No e-mail has been sent yet.`,
+      employeeId: emp.id,
+      created: true,
+      kind: "none",
+    };
+  }
+
   // 2. Invite; on failure remove the row again.
   let authUserId: string;
   try {
@@ -195,17 +228,29 @@ async function resendInvite(ctx: CeoContext, employeeId: string) {
     throw new HttpError(400, "This employee does not have an email address.");
   }
 
+  let kind: "invite" | "reset" = "invite";
+  const firstInvite = !emp.auth_user_id;
   if (emp.auth_user_id) {
     const { data: authData, error: authError } = await ctx.admin.auth.admin
       .getUserById(emp.auth_user_id);
     if (authError || !authData?.user) {
       throw new HttpError(500, "Could not check the employee's login account.");
     }
-    if (authData.user.last_sign_in_at) {
-      throw new HttpError(400, "This employee has already activated their account.");
+    if (planResend(authData.user) === "reset") {
+      // Already used the account: they forgot the password, so send a reset link.
+      kind = "reset";
+      await sendReset(ctx, emp.email);
+    } else {
+      // Account exists but was never used: re-sending the invite is safe.
+      try {
+        await sendInvite(ctx, emp, emp.email);
+      } catch (err) {
+        // The auth server may refuse to invite an address that is already registered: a reset link works then.
+        if (!(err instanceof HttpError) || !isAlreadyRegistered(err.message)) throw err;
+        kind = "reset";
+        await sendReset(ctx, emp.email);
+      }
     }
-    // Account exists but was never used: re-sending the invite is safe.
-    await sendInvite(ctx, emp, emp.email);
   } else {
     const authUserId = await sendInvite(ctx, emp, emp.email);
     const { error: linkError } = await ctx.admin
@@ -219,10 +264,20 @@ async function resendInvite(ctx: CeoContext, employeeId: string) {
     }
   }
 
-  await audit(ctx, "employee.invite_resend", emp.id,
-    `Re-sent invitation to ${emp.first_name} ${emp.last_name}`, { email: emp.email });
+  if (kind === "reset") {
+    await audit(ctx, "employee.password_reset", emp.id,
+      `Sent a password-reset link to ${emp.first_name} ${emp.last_name}`, { email: emp.email });
+    return { message: `Password reset link sent to ${emp.email}`, employeeId: emp.id, created: false, kind };
+  }
 
-  return { message: `Invitation sent to ${emp.email}`, employeeId: emp.id, created: false };
+  if (firstInvite) {
+    await audit(ctx, "employee.invite", emp.id, `Invited ${emp.first_name} ${emp.last_name}`, { email: emp.email });
+  } else {
+    await audit(ctx, "employee.invite_resend", emp.id,
+      `Re-sent invitation to ${emp.first_name} ${emp.last_name}`, { email: emp.email });
+  }
+
+  return { message: `Invitation sent to ${emp.email}`, employeeId: emp.id, created: false, kind };
 }
 
 serve(async (req) => {

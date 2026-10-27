@@ -142,7 +142,7 @@ export default function EmployeeEditor({ employee, profile, directory, today, de
             )}
           </div>
           {emailChanged && (
-            <p className="la-hint la-hint-flow">Changing the e-mail also changes the address they log in with. If they have not activated their account yet, use Resend invite afterwards.</p>
+            <p className="la-hint la-hint-flow">Changing the e-mail also changes the address they log in with. If they have not been invited yet, the invitation will go to the new address. If they were invited but have not activated, use Send login link afterwards.</p>
           )}
           <label className="la-tile la-toggle" style={{ cursor: isSelf ? 'default' : 'pointer' }}>
             <input type="checkbox" checked={form.isActive} disabled={isSelf} onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))} />
