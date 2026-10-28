@@ -4,6 +4,7 @@ import { CalendarDays } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useLoad } from '../hooks/useLoad';
 import MonthCalendar from '../components/MonthCalendar';
+import TeamGrid from '../components/TeamGrid';
 import { Alert, Field, SectionCard } from '../components/ui';
 import { fetchOnlineDays, listHolidays, listLeaves, listProfiles } from '../services/api';
 import { categoryLabel } from '../lib/leaves';
@@ -36,6 +37,8 @@ export default function CalendarView({ directory, title = 'Calendar' }) {
   const [view, setView] = useState({ year: start.y, month: start.m });
   const [layers, setLayers] = useState(() => new Set(LAYERS.map((l) => l.id)));
   const [departmentId, setDepartmentId] = useState('');
+  const [mode, setMode] = useState('month'); // 'month' | 'grid' (the grid is for managers)
+  const grid = isManager && mode === 'grid';
 
   const weeks = useMemo(() => monthGrid(view.year, view.month), [view.year, view.month]);
   const from = weeks[0][0].date;
@@ -99,12 +102,18 @@ export default function CalendarView({ directory, title = 'Calendar' }) {
     });
 
   const visibleLayers = LAYERS.filter((l) => isAdmin || !l.adminOnly);
-  const error = holidays.error || leaves.error || online.error || profiles.error;
+  const error = grid ? '' : holidays.error || leaves.error || online.error || profiles.error;
 
   return (
     <SectionCard icon={CalendarDays} eyebrow={isAdmin ? 'Everyone' : isManager ? 'Your department' : 'You'} title={title}>
       <div className="la-toolbar">
-        <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
+        {isManager && (
+          <div className="la-seg" role="group" aria-label="Calendar view">
+            <button type="button" aria-pressed={mode === 'month'} onClick={() => setMode('month')}>Month</button>
+            <button type="button" aria-pressed={mode === 'grid'} onClick={() => setMode('grid')}>Team grid</button>
+          </div>
+        )}
+        {!grid && <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
           <legend className="la-label" style={{ fontSize: 12, color: 'var(--text-muted)' }}>Show</legend>
           <div className="la-checks">
             {visibleLayers.map((l) => (
@@ -114,7 +123,7 @@ export default function CalendarView({ directory, title = 'Calendar' }) {
               </label>
             ))}
           </div>
-        </fieldset>
+        </fieldset>}
         {isAdmin && (directory?.departments?.length ?? 0) > 0 && (
           <Field label="Department" id="cal-dept">
             <select id="cal-dept" className="la-input compact" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)}>
@@ -127,7 +136,18 @@ export default function CalendarView({ directory, title = 'Calendar' }) {
         )}
       </div>
       {error && <Alert error>{error}</Alert>}
-      <MonthCalendar year={view.year} month={view.month} onMonth={(year, month) => setView({ year, month })} events={events} today={today} />
+      {grid ? (
+        <TeamGrid
+          year={view.year}
+          month={view.month}
+          onMonth={(year, month) => setView({ year, month })}
+          today={today}
+          directory={directory}
+          departmentId={isAdmin ? departmentId : ''}
+        />
+      ) : (
+        <MonthCalendar year={view.year} month={view.month} onMonth={(year, month) => setView({ year, month })} events={events} today={today} />
+      )}
     </SectionCard>
   );
 }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ClipboardList, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useLoad } from '../../hooks/useLoad';
@@ -8,7 +8,7 @@ import DevLeaveModal from '../../components/DevLeaveModal';
 import DecideModal from '../../components/DecideModal';
 import PersonLink from '../../components/PersonLink';
 import { Alert, DataTable, Field, Message, Pill, PillButton, SectionCard } from '../../components/ui';
-import { cancelLeave, devDeleteLeave, listLeaves } from '../../services/api';
+import { cancelLeave, devDeleteLeave, devDeleteLeaves, listLeaves } from '../../services/api';
 import { CATEGORIES, canDecide, categoryLabel, statusLabel, statusTone } from '../../lib/leaves';
 import { dateRange, parseYmd } from '../../lib/calendar';
 import { formatDateTime, todayInTz } from '../../lib/time';
@@ -84,6 +84,8 @@ export default function LeavesTab({ pending, directory }) {
   const [cancelling, setCancelling] = useState(null);
   const [editing, setEditing] = useState(null); // leave | {} for a new one
   const [toDelete, setToDelete] = useState(null);
+  const [picked, setPicked] = useState(() => new Set()); // developer: ticked leave ids
+  const [bulkDelete, setBulkDelete] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const all = useLoad(() => listLeaves('managed', { from: `${year}-01-01`, to: `${year}-12-31` }), [year]);
@@ -101,6 +103,22 @@ export default function LeavesTab({ pending, directory }) {
     );
   }, [all.data, status, category, departmentId, search]);
 
+  // Only leaves that are still in the list count as selected (a filter change drops the rest).
+  const chosen = useMemo(() => rows.filter((l) => picked.has(l.id)), [rows, picked]);
+  const allChosen = rows.length > 0 && chosen.length === rows.length;
+  const selectAllRef = useRef(null);
+  useEffect(() => {
+    if (selectAllRef.current) selectAllRef.current.indeterminate = chosen.length > 0 && !allChosen;
+  }, [chosen.length, allChosen]);
+  const togglePick = (id) =>
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const toggleAll = () => setPicked(allChosen ? new Set() : new Set(rows.map((l) => l.id)));
+
   const reload = () => {
     all.reload();
     pending.reload();
@@ -112,6 +130,21 @@ export default function LeavesTab({ pending, directory }) {
       await devDeleteLeave(toDelete.id);
       toast.success('Leave deleted.');
       setToDelete(null);
+      reload();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirmBulkDelete() {
+    setBusy(true);
+    try {
+      const n = await devDeleteLeaves(chosen.map((l) => l.id));
+      toast.success(`${n} ${n === 1 ? 'leave' : 'leaves'} deleted.`);
+      setBulkDelete(false);
+      setPicked(new Set());
       reload();
     } catch (err) {
       toast.error(err.message);
@@ -176,15 +209,57 @@ export default function LeavesTab({ pending, directory }) {
           </Field>
         </div>
 
+        {isDeveloper && chosen.length > 0 && (
+          <div className="la-toolbar la-bulkbar" role="region" aria-label="Selected leaves">
+            <span className="la-meta"><strong>{chosen.length}</strong> selected</span>
+            <PillButton variant="danger" size="sm" icon={Trash2} onClick={() => setBulkDelete(true)}>
+              Delete selected
+            </PillButton>
+            <PillButton variant="secondary" size="sm" onClick={() => setPicked(new Set())}>
+              Clear selection
+            </PillButton>
+          </div>
+        )}
+
         {all.error && <Alert error>{all.error}</Alert>}
         {all.loading && !all.data ? (
           <Message>Loading…</Message>
         ) : rows.length === 0 ? (
           <Message>No leave requests match.</Message>
         ) : (
-          <DataTable headers={['Employee', 'Type', 'Dates', 'Days', 'Status', 'Replacement', 'Decided by', 'Note', 'Actions']} minWidth={1180}>
+          <DataTable
+            headers={[
+              ...(isDeveloper
+                ? [{
+                    label: 'Select',
+                    className: 'la-th-check',
+                    node: (
+                      <input
+                        ref={selectAllRef}
+                        type="checkbox"
+                        aria-label="Select all shown leaves"
+                        checked={allChosen}
+                        onChange={toggleAll}
+                      />
+                    ),
+                  }]
+                : []),
+              'Employee', 'Type', 'Dates', 'Days', 'Status', 'Replacement', 'Decided by', 'Note', 'Actions',
+            ]}
+            minWidth={isDeveloper ? 1240 : 1180}
+          >
             {rows.map((l) => (
-              <tr key={l.id}>
+              <tr key={l.id} className={picked.has(l.id) ? 'la-row-picked' : undefined}>
+                {isDeveloper && (
+                  <td className="la-td la-td-check">
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${l.employee_name}, ${categoryLabel(l.category)} ${dateRange(l.start_date, l.end_date)}`}
+                      checked={picked.has(l.id)}
+                      onChange={() => togglePick(l.id)}
+                    />
+                  </td>
+                )}
                 <td className="la-td"><PersonLink id={l.employee_id}>{l.employee_name}</PersonLink></td>
                 <td className="la-td">{categoryLabel(l.category)}</td>
                 <td className="la-td">{dateRange(l.start_date, l.end_date)}</td>
@@ -240,6 +315,17 @@ export default function LeavesTab({ pending, directory }) {
       {deciding && <DecideModal leave={deciding.leave} decision={deciding.decision} onClose={() => setDeciding(null)} onDone={reload} />}
       {cancelling && <CancelModal leave={cancelling} onClose={() => setCancelling(null)} onDone={reload} />}
       {editing && <DevLeaveModal leave={editing.id ? editing : null} employees={employees} onClose={() => setEditing(null)} onSaved={reload} />}
+      {bulkDelete && (
+        <ConfirmDialog
+          title={`Delete ${chosen.length} ${chosen.length === 1 ? 'leave' : 'leaves'}?`}
+          danger
+          confirmLabel={`Delete ${chosen.length} permanently`}
+          busy={busy}
+          onCancel={() => setBulkDelete(false)}
+          onConfirm={confirmBulkDelete}
+          message={`${chosen.slice(0, 5).map((l) => `${l.employee_name}: ${categoryLabel(l.category)} ${dateRange(l.start_date, l.end_date)}`).join('\n')}${chosen.length > 5 ? `\n… and ${chosen.length - 5} more` : ''}\n\nThey disappear from the calendar and the days are given back. Each one is logged.`}
+        />
+      )}
       {toDelete && (
         <ConfirmDialog
           title={`Delete ${toDelete.employee_name}'s leave?`}

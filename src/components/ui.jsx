@@ -119,10 +119,10 @@ export function DataTable({ headers, minWidth, children }) {
         <thead>
           <tr>
             {headers.map((h) => {
-              const { label, className = '' } = typeof h === 'string' ? { label: h } : h;
+              const { label, className = '', node } = typeof h === 'string' ? { label: h } : h;
               return (
                 <th key={label} className={`la-th ${className}`} scope="col">
-                  {label}
+                  {node ?? label}
                 </th>
               );
             })}

@@ -499,6 +499,11 @@ export async function devDeleteLeave(leaveId) {
   unwrap(await supabase.rpc('dev_delete_leave', { p_leave_id: leaveId }));
 }
 
+/** Developer: delete several leaves at once (up to 500). Resolves to the number really deleted. */
+export async function devDeleteLeaves(leaveIds) {
+  return unwrap(await supabase.rpc('dev_delete_leaves', { p_leave_ids: leaveIds }));
+}
+
 /* ---------- auth ---------- */
 
 export async function signIn(email, password) {

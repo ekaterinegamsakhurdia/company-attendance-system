@@ -48,7 +48,7 @@ end $$;
 
 -- exact policy set after both migrations
 do $$ begin
-  if (select count(*) from pg_policies where schemaname='public') <> 24 then
+  if (select count(*) from pg_policies where schemaname='public') <> 25 then
     raise exception 'unexpected policy count: %', (select count(*) from pg_policies where schemaname='public'); end if;
 end $$;
 

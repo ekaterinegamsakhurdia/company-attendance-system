@@ -714,3 +714,37 @@ button.la-user-btn:hover { background: var(--primary-soft); border-color: var(--
 .la-hint-flow { margin: -8px 0 16px; }
 .la-toggle { margin: 0 0 16px; }
 .la-editor-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+
+/* Leaves: developer multi-select */
+.la-th-check, .la-td-check { width: 44px; text-align: center; }
+.la-td-check input, .la-th-check input { width: 16px; height: 16px; accent-color: var(--accent, #2f8cff); cursor: pointer; }
+.la-bulkbar { align-items: center; gap: 10px; padding: 10px 14px; margin-bottom: 12px; border-radius: 14px; background: rgba(47,140,255,0.08); border: 1px solid rgba(47,140,255,0.25); }
+.la-table tbody tr.la-row-picked .la-td { background: rgba(47,140,255,0.08); }
+
+/* ---------- Team grid (calendar tab): a coloured square per leave day ---------- */
+.la-tg-wrap { max-height: 72vh; }
+.la-tg-table thead th { min-width: 26px; padding: 5px 0; }
+.la-tg-table thead th.la-ts-name { min-width: 168px; text-align: left; padding: 8px 12px; }
+.la-tg-wd { display: block; font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: none; }
+.la-tg-dn { display: block; font-size: 12px; }
+.la-tg-table tbody td { height: 34px; min-width: 26px; padding: 3px; }
+.la-tg-table tbody .la-ts-name { min-width: 168px; max-width: 190px; }
+.la-tg-table tbody td.weekend { background: rgba(120,160,255,.08); }
+.la-tg-table tbody td.today, .la-tg-table thead th.today { box-shadow: inset 2px 0 0 var(--primary), inset -2px 0 0 var(--primary); }
+.la-tg-table tbody tr:not(.la-tg-group):hover td:not(.la-ts-sum) { background: rgba(47,140,255,.06); }
+.la-tg-table .la-ts-name { font-weight: 600; font-size: 13px; }
+.la-tg-group .la-ts-name { background: var(--bg-card); color: var(--text-muted); font-size: 12px; font-weight: 700; padding: 6px 12px; }
+.la-tg-group td { background: var(--bg-card); border-right: none; }
+.la-tg-count { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 999px; background: var(--bg-card-inner); color: var(--text-muted); font-weight: 600; }
+.la-tg-sq { display: block; width: 100%; min-width: 22px; height: 24px; border-radius: 6px; }
+.la-cal-legend .la-tg-sq { display: inline-block; width: 14px; min-width: 14px; height: 14px; border-radius: 4px; vertical-align: -2px; }
+.la-tg-sq.vacation { background: #22c55e; }
+.la-tg-sq.unpaid { background: #94a3b8; }
+.la-tg-sq.day_off { background: #ef4444; }
+.la-tg-sq.holiday { background: #3b82f6; }
+.la-tg-sq.pending { background-image: repeating-linear-gradient(135deg, rgba(255,255,255,.55) 0 3px, transparent 3px 7px); box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.35); }
+.la-tg-table .la-ts-sum { min-width: 34px; }
+.la-tg .la-meta { margin-top: 12px; }
+@media (max-width: 640px) {
+  .la-tg-table thead th.la-ts-name, .la-tg-table tbody .la-ts-name { min-width: 118px; max-width: 130px; }
+}
