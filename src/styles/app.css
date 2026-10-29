@@ -748,3 +748,196 @@ button.la-user-btn:hover { background: var(--primary-soft); border-color: var(--
 @media (max-width: 640px) {
   .la-tg-table thead th.la-ts-name, .la-tg-table tbody .la-ts-name { min-width: 118px; max-width: 130px; }
 }
+
+
+/* =====================================================================
+   Theme switch button (both themes)
+   ===================================================================== */
+.la-theme-toggle {
+  flex: none; width: 36px; height: 36px; border-radius: 50%; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+  background: rgba(120,160,255,.04); color: var(--text-body); border: 1px solid var(--border-strong);
+  transition: background 160ms ease, color 160ms ease, border-color 160ms ease, transform 160ms var(--ease);
+}
+.la-theme-toggle:hover { color: var(--text-heading); border-color: var(--primary); background: var(--primary-soft); }
+.la-theme-toggle:active { transform: scale(.94); }
+.la-theme-toggle.floating { position: fixed; top: 16px; right: 16px; z-index: 30; }
+.la-key.weekend { background: rgba(120,160,255,.10); }
+.la-key.holiday { background: rgba(56,189,248,.22); }
+.la-key.leave-v { background: rgba(132,204,22,.22); }
+.la-key.leave-ul { background: rgba(148,163,184,.28); }
+.la-key.leave-do { background: rgba(248,113,113,.26); }
+.la-key.pending { background: repeating-linear-gradient(135deg, rgba(251,191,36,.3) 0 4px, transparent 4px 8px); }
+.la-key.online { background: rgba(167,139,250,.32); }
+.la-key.ot-dot { background: rgba(45,212,191,.9); }
+.la-key.absent { background: rgba(251,191,36,.12); }
+
+/* =====================================================================
+   LIGHT THEME: soft grey-white page, a vivid blue band at the bottom, black heavy type,
+   electric-blue buttons and coral glass accents. Dark (above) is the original look.
+   ===================================================================== */
+:root[data-theme="light"] {
+  --bg-page: #F2F2F3;
+  --bg-hero-glow: #E4ECFF;
+  --bg-card: #FFFFFF;
+  --bg-card-inner: #F5F6F9;
+  --bg-raised: #FFFFFF;
+  --border: rgba(10,20,50,0.09);
+  --border-strong: rgba(10,20,50,0.18);
+  --primary: #1558FF;
+  --primary-deep: #0A3FE0;
+  --primary-soft: rgba(21,88,255,0.09);
+  --text-heading: #0A0A0B;
+  --text-body: #3B4252;
+  --text-muted: #626B7D;
+  --ok: #0B7D4C;
+  --warn: #B4530A;
+  --danger: #C62828;
+  --coral: #FF8A5B;
+  --coral-soft: rgba(255,138,91,0.16);
+  --accent-text: #0A3FE0;
+  --grad-primary: linear-gradient(135deg, #2F6BFF, #0A3FE0);
+  --grad-hero: none;
+  --font: Inter, "Noto Sans Georgian", system-ui, sans-serif;
+  --shadow-card: 0 1px 2px rgba(10,20,50,.05), 0 26px 50px -30px rgba(20,50,140,.32);
+  --shadow-pop: 0 28px 70px -16px rgba(10,30,100,.35), 0 0 0 1px rgba(10,20,50,.06);
+  --glow: 0 8px 24px -8px rgba(21,88,255,.55);
+}
+:root[data-theme="light"] html, :root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="light"] body { background: var(--bg-page); }
+
+/* Page: grey-white with the blue band rising at the bottom, and a few coral glass tiles floating behind the cards */
+:root[data-theme="light"] .la-page {
+  background:
+    linear-gradient(180deg, rgba(31,91,255,0) 0%, rgba(96,141,255,.55) 38%, #1F5BFF 100%) bottom / 100% 440px no-repeat,
+    var(--bg-page);
+  background-attachment: scroll;
+}
+:root[data-theme="light"] .la-page::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23FFE3D4'/%3E%3Cstop offset='1' stop-color='%23FF9466'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cg transform='rotate(14 60 60)'%3E%3Crect x='14' y='14' width='92' height='92' rx='27' fill='url(%23g)' fill-opacity='.82'/%3E%3Crect x='14.75' y='14.75' width='90.5' height='90.5' rx='26.25' fill='none' stroke='white' stroke-opacity='.8' stroke-width='1.5'/%3E%3Cpath d='M30 36 Q60 19 92 36' stroke='white' stroke-opacity='.6' stroke-width='3.5' fill='none' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E"), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23FFE9DD'/%3E%3Cstop offset='1' stop-color='%23FFA57C'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cg transform='rotate(-12 60 60)'%3E%3Crect x='14' y='14' width='92' height='92' rx='27' fill='url(%23g)' fill-opacity='.82'/%3E%3Crect x='14.75' y='14.75' width='90.5' height='90.5' rx='26.25' fill='none' stroke='white' stroke-opacity='.8' stroke-width='1.5'/%3E%3Cpath d='M30 36 Q60 19 92 36' stroke='white' stroke-opacity='.6' stroke-width='3.5' fill='none' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E"), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23FFDCCB'/%3E%3Cstop offset='1' stop-color='%23FF8A5B'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cg transform='rotate(22 60 60)'%3E%3Crect x='14' y='14' width='92' height='92' rx='27' fill='url(%23g)' fill-opacity='.82'/%3E%3Crect x='14.75' y='14.75' width='90.5' height='90.5' rx='26.25' fill='none' stroke='white' stroke-opacity='.8' stroke-width='1.5'/%3E%3Cpath d='M30 36 Q60 19 92 36' stroke='white' stroke-opacity='.6' stroke-width='3.5' fill='none' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-size: 138px 138px, 82px 82px, 104px 104px;
+  background-position: right 5% top 92px, left 2.5% top 46%, right 9% bottom 250px;
+  filter: drop-shadow(0 22px 26px rgba(255,120,64,.38));
+  -webkit-mask-image: none; mask-image: none;
+}
+@media (max-width: 760px) { :root[data-theme="light"] .la-page::before { opacity: .5; } }
+:root[data-theme="light"] .la-page ::selection, :root[data-theme="light"] .la-overlay ::selection { background: rgba(21,88,255,.22); color: #0A0A0B; }
+:root[data-theme="light"] .la-page, :root[data-theme="light"] .la-overlay { scrollbar-color: rgba(10,20,50,.25) transparent; }
+:root[data-theme="light"] .la-page ::-webkit-scrollbar-thumb, :root[data-theme="light"] .la-overlay ::-webkit-scrollbar-thumb, :root[data-theme="light"] .la-modal::-webkit-scrollbar-thumb { background: rgba(10,20,50,.2); background-clip: padding-box; }
+:root[data-theme="light"] .la-version { color: rgba(255,255,255,.9); opacity: 1; font-weight: 500; }
+:root[data-theme="light"] .la-page :focus-visible, :root[data-theme="light"] .la-overlay :focus-visible { outline-color: var(--primary); }
+
+/* Type: heavy and tight */
+:root[data-theme="light"] .la-page h1, :root[data-theme="light"] .la-page h2, :root[data-theme="light"] .la-page h3,
+:root[data-theme="light"] .la-overlay h1, :root[data-theme="light"] .la-overlay h2, :root[data-theme="light"] .la-overlay h3 { letter-spacing: -0.03em; }
+:root[data-theme="light"] .la-h1 { font-weight: 800; letter-spacing: -0.045em !important; line-height: 1.02; }
+:root[data-theme="light"] .la-h2, :root[data-theme="light"] .la-modal h2, :root[data-theme="light"] .la-pc-name h2 { font-weight: 800; }
+:root[data-theme="light"] .la-brand { letter-spacing: -0.03em; font-weight: 800; }
+:root[data-theme="light"] .la-stat-num { font-weight: 800; letter-spacing: -0.04em; }
+:root[data-theme="light"] .la-eyebrow { color: var(--accent-text); }
+
+/* Top bar */
+:root[data-theme="light"] .la-nav { background: rgba(255,255,255,.78); }
+:root[data-theme="light"] .la-badge { color: var(--accent-text); background: var(--primary-soft); border-color: rgba(21,88,255,.22); }
+:root[data-theme="light"] .la-badge::before { background: var(--coral); box-shadow: 0 0 10px var(--coral); }
+:root[data-theme="light"] .la-theme-toggle { background: #fff; }
+
+/* Cards: white, big radius, soft blue shadow */
+:root[data-theme="light"] .la-card { background: linear-gradient(180deg, rgba(21,88,255,.035), rgba(21,88,255,0) 120px), var(--bg-card); border-radius: 24px; }
+:root[data-theme="light"] .la-tile-icon, :root[data-theme="light"] .la-message-icon { color: var(--primary); }
+:root[data-theme="light"] .la-icon-tile { box-shadow: 0 0 0 1px rgba(255,255,255,.3) inset, 0 8px 18px -8px rgba(21,88,255,.6); }
+:root[data-theme="light"] .la-stat::after { background: linear-gradient(180deg, var(--coral), #FF6F3C); }
+
+/* Buttons and inputs */
+:root[data-theme="light"] .la-btn.primary { box-shadow: 0 0 0 1px rgba(255,255,255,.2) inset, 0 10px 24px -10px rgba(21,88,255,.8); }
+:root[data-theme="light"] .la-btn.secondary { background: #fff; color: var(--text-heading); border-color: var(--border-strong); }
+:root[data-theme="light"] .la-btn.secondary:hover:not(:disabled) { border-color: var(--primary); background: var(--primary-soft); }
+:root[data-theme="light"] .la-btn.ghost:hover:not(:disabled) { color: var(--text-heading); }
+:root[data-theme="light"] .la-btn.danger { border-color: rgba(198,40,40,.4); }
+:root[data-theme="light"] .la-btn.danger:hover:not(:disabled) { background: rgba(198,40,40,.08); }
+:root[data-theme="light"] .la-input { background: #fff; }
+:root[data-theme="light"] .la-input:focus { background-color: #fff; }
+:root[data-theme="light"] .la-form-panel .la-input, :root[data-theme="light"] .la-fieldset .la-input { background-color: #fff; }
+:root[data-theme="light"] .la-form-panel .la-input:focus, :root[data-theme="light"] .la-fieldset .la-input:focus { background-color: #fff; }
+:root[data-theme="light"] .la-fieldset { background: rgba(10,30,90,.025); }
+:root[data-theme="light"] .la-link { color: var(--accent-text); }
+:root[data-theme="light"] .la-link:hover { color: var(--primary); }
+:root[data-theme="light"] .la-alert.success { background: rgba(14,138,85,.08); border-color: rgba(14,138,85,.35); }
+:root[data-theme="light"] .la-alert.error { background: rgba(198,40,40,.07); border-color: rgba(198,40,40,.4); }
+:root[data-theme="light"] .la-neg { color: var(--danger); }
+
+/* Tables, tabs, pills, toasts, dialogs */
+:root[data-theme="light"] .la-th { background: rgba(10,30,90,.035); }
+:root[data-theme="light"] .la-table tbody tr:hover .la-td { background: rgba(21,88,255,.045); }
+:root[data-theme="light"] .la-tabs { background: rgba(255,255,255,.85); }
+:root[data-theme="light"] .la-tabs-wrap::before { background: linear-gradient(90deg, #fff, transparent); }
+:root[data-theme="light"] .la-tabs-wrap::after { background: linear-gradient(270deg, #fff, transparent); }
+:root[data-theme="light"] .la-tab:hover { color: var(--text-heading); }
+:root[data-theme="light"] .la-tab[aria-selected="true"], :root[data-theme="light"] .la-tab[aria-selected="true"]:hover { color: #fff; }
+:root[data-theme="light"] .la-tab[aria-selected="false"]:hover { background: var(--primary-soft); }
+:root[data-theme="light"] .la-pill.ok { border-color: rgba(14,138,85,.35); background: rgba(14,138,85,.08); }
+:root[data-theme="light"] .la-pill.warn { border-color: rgba(255,138,91,.5); background: var(--coral-soft); }
+:root[data-theme="light"] .la-pill.online { color: #5b21b6; border-color: rgba(109,79,224,.4); background: rgba(109,79,224,.1); }
+:root[data-theme="light"] .la-pill.ot { color: #0f766e; border-color: rgba(15,118,110,.4); background: rgba(15,118,110,.09); }
+:root[data-theme="light"] .la-toast { background: #fff; }
+:root[data-theme="light"] .la-toast button:hover, :root[data-theme="light"] .la-modal-x:hover { color: var(--text-heading); }
+:root[data-theme="light"] .la-overlay { background: rgba(14,28,70,.36); }
+:root[data-theme="light"] .la-modal { background: linear-gradient(180deg, rgba(21,88,255,.04), rgba(21,88,255,0) 110px), var(--bg-card); border-radius: 26px; }
+:root[data-theme="light"] .la-modal-x.floating { background: rgba(255,255,255,.75); }
+:root[data-theme="light"] .la-auth::before { background: radial-gradient(circle, rgba(255,138,91,.22), transparent 62%); }
+:root[data-theme="light"] .la-ms-pop { background: #fff; }
+:root[data-theme="light"] .la-person:hover, :root[data-theme="light"] .la-seg button:hover { color: var(--text-heading); }
+:root[data-theme="light"] .la-seg button[aria-pressed="true"] { color: #fff; }
+:root[data-theme="light"] .la-bar { background: rgba(10,30,90,.1); }
+:root[data-theme="light"] .la-pc-mail:hover { color: var(--primary); }
+:root[data-theme="light"] .la-badge-count { background: var(--coral); color: #3a1200; }
+
+/* People */
+:root[data-theme="light"] .la-avatar { background: linear-gradient(135deg, #E3ECFF, #CFDDFF); color: #0A3FE0; }
+:root[data-theme="light"] .la-avatar.photo { background: var(--bg-card-inner); }
+:root[data-theme="light"] .la-pc-cover {
+  background:
+    radial-gradient(ellipse 55% 130% at 88% 0%, rgba(255,138,91,.55), transparent 70%),
+    linear-gradient(135deg, #1F5BFF, #5C8BFF 70%, #9DB9FF);
+}
+:root[data-theme="light"] .la-pc-id .la-avatar { box-shadow: 0 0 0 1px var(--border-strong), 0 14px 28px -12px rgba(10,30,100,.45); }
+
+/* Calendar and timesheet */
+:root[data-theme="light"] .la-cal-day:hover { background: #EEF3FF; }
+:root[data-theme="light"] .la-cal-day.today .la-cal-num { color: #fff; }
+:root[data-theme="light"] .la-cal-wd.weekend { color: #8A93A8; }
+:root[data-theme="light"] .la-cal-chip.holiday { color: #b91c1c; background: rgba(248,113,113,.2); }
+:root[data-theme="light"] .la-cal-chip.leave { color: #0a3fb0; background: rgba(59,155,255,.2); }
+:root[data-theme="light"] .la-cal-chip.pending { color: #92400e; border-color: #f59e0b; }
+:root[data-theme="light"] .la-cal-chip.birthday { color: #9d174d; background: rgba(244,114,182,.2); }
+:root[data-theme="light"] .la-cal-chip.anniversary { color: #047857; background: rgba(52,211,153,.22); }
+:root[data-theme="light"] .la-cal-chip.online { color: #5b21b6; background: rgba(167,139,250,.24); }
+:root[data-theme="light"] .la-ts td.holiday { color: #075985; background: rgba(56,189,248,.3); }
+:root[data-theme="light"] .la-ts td.leave-v { color: #3f6212; background: rgba(132,204,22,.3); }
+:root[data-theme="light"] .la-ts td.leave-ul { color: #334155; background: rgba(148,163,184,.34); }
+:root[data-theme="light"] .la-ts td.leave-do { color: #b91c1c; background: rgba(248,113,113,.3); }
+:root[data-theme="light"] .la-ts td.pending { color: #92400e; }
+:root[data-theme="light"] .la-ts td.absent { color: #92400e; background: rgba(251,191,36,.2); }
+:root[data-theme="light"] .la-ts td.online { color: #4c1d95; background: rgba(167,139,250,.34); }
+:root[data-theme="light"] .la-ts th.today { color: var(--primary-deep); background: rgba(21,88,255,.14); }
+:root[data-theme="light"] .la-ts td.weekend, :root[data-theme="light"] .la-tg-table tbody td.weekend { background: rgba(21,88,255,.06); }
+:root[data-theme="light"] .la-ts th.holiday { background: rgba(56,189,248,.3); }
+:root[data-theme="light"] .la-key.weekend { background: rgba(21,88,255,.08); }
+:root[data-theme="light"] .la-key.holiday { background: rgba(56,189,248,.4); }
+:root[data-theme="light"] .la-key.leave-v { background: rgba(132,204,22,.45); }
+:root[data-theme="light"] .la-key.leave-ul { background: rgba(148,163,184,.5); }
+:root[data-theme="light"] .la-key.leave-do { background: rgba(248,113,113,.45); }
+:root[data-theme="light"] .la-key.absent { background: rgba(251,191,36,.3); }
+:root[data-theme="light"] .la-tg-sq.pending { box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.55); }
+
+/* Office map */
+:root[data-theme="light"] .la-floor { background: linear-gradient(135deg, #2F6BFF, #0A3FE0); box-shadow: 0 0 0 1px rgba(21,88,255,.3), 0 30px 60px -30px rgba(21,88,255,.6); }
+:root[data-theme="light"] .la-room { background: linear-gradient(rgba(21,88,255,.045) 1px, transparent 1px) 0 0 / 28px 28px, linear-gradient(90deg, rgba(21,88,255,.045) 1px, transparent 1px) 0 0 / 28px 28px, #FAFBFE; }
+:root[data-theme="light"] .la-seat { border-color: rgba(10,30,90,.22); }
+:root[data-theme="light"] .la-bub:focus-visible .la-bub-float { outline-color: var(--primary); }
+:root[data-theme="light"] .la-bub-status.online { color: #6d4fe0; }
+:root[data-theme="light"] .la-bub-status.ot { color: #0f766e; }
+:root[data-theme="light"] .la-bub.office .la-avatar { box-shadow: 0 0 0 2.5px #fff, 0 0 0 4.5px var(--ok), 0 10px 24px -6px rgba(14,138,85,.5); }
+:root[data-theme="light"] .la-bub.online .la-avatar { box-shadow: 0 0 0 2.5px #fff, 0 0 0 4.5px #8b6df0; }
+:root[data-theme="light"] .la-bub-badge { border-color: #fff; }

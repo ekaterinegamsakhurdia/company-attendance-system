@@ -103,15 +103,15 @@ export default function Timesheet({ people, range, leaveTypes, profiles, everyon
       {error && <Alert error>{error}</Alert>}
       {valid && (
         <div className="la-ts-legend" aria-label="Legend">
-          <span><i style={{ background: 'rgba(120,160,255,.10)' }} />Weekend</span>
-          <span><i style={{ background: 'rgba(56,189,248,.22)' }} />Public holiday</span>
-          <span><i style={{ background: 'rgba(132,204,22,.22)' }} />Vacation</span>
-          <span><i style={{ background: 'rgba(148,163,184,.28)' }} />Unpaid leave</span>
-          <span><i style={{ background: 'rgba(248,113,113,.26)' }} />Day off</span>
-          <span><i style={{ background: 'repeating-linear-gradient(135deg, rgba(251,191,36,.3) 0 4px, transparent 4px 8px)' }} />Requested</span>
-          <span><i style={{ background: 'rgba(167,139,250,.32)' }} />Online work day</span>
-          <span><i style={{ background: 'rgba(45,212,191,.9)' }} />Overtime (dot)</span>
-          <span><i style={{ background: 'rgba(251,191,36,.12)' }} />No record</span>
+          <span><i className="la-key weekend" />Weekend</span>
+          <span><i className="la-key holiday" />Public holiday</span>
+          <span><i className="la-key leave-v" />Vacation</span>
+          <span><i className="la-key leave-ul" />Unpaid leave</span>
+          <span><i className="la-key leave-do" />Day off</span>
+          <span><i className="la-key pending" />Requested</span>
+          <span><i className="la-key online" />Online work day</span>
+          <span><i className="la-key ot-dot" />Overtime (dot)</span>
+          <span><i className="la-key absent" />No record</span>
           <span>Grey numbers are scheduled hours (today and later); other numbers are hours worked.</span>
         </div>
       )}

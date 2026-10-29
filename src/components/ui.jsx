@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react';
-import { Layers, LogOut, CheckCircle2, AlertCircle, Inbox } from 'lucide-react';
+import { Layers, LogOut, CheckCircle2, AlertCircle, Inbox, Moon, Sun } from 'lucide-react';
+import { useTheme } from '../hooks/useTheme';
 import Avatar from './Avatar';
 
 export function Eyebrow({ children }) {
@@ -212,6 +213,24 @@ export function Tabs({ tabs, value, onChange }) {
   );
 }
 
+/** Switches between the dark and the light theme (the choice is remembered on this device). */
+export function ThemeToggle({ floating = false }) {
+  const { theme, toggle } = useTheme();
+  const next = theme === 'light' ? 'dark' : 'light';
+  const Icon = next === 'light' ? Sun : Moon;
+  return (
+    <button
+      type="button"
+      className={`la-theme-toggle${floating ? ' floating' : ''}`}
+      onClick={toggle}
+      aria-label={`Switch to ${next} mode`}
+      title={`Switch to ${next} mode`}
+    >
+      <Icon size={16} aria-hidden="true" />
+    </button>
+  );
+}
+
 /**
  * Page frame. `user` ({ first_name, last_name }), `avatarPath` and `roleLabel` fill the account chip in the top bar
  * (a button that opens "My profile" when `onProfile` is given); `bare` drops the bar for sign-in style pages.
@@ -229,6 +248,7 @@ export function Shell({ children, wide, onLogout, user, roleLabel, avatarPath, o
               <span>Looper Agency</span>
             </div>
             <div className="la-nav-right">
+              <ThemeToggle />
               {user && (
                 <div className="la-user">
                   {(() => {
@@ -263,6 +283,7 @@ export function Shell({ children, wide, onLogout, user, roleLabel, avatarPath, o
           </div>
         </header>
       )}
+      {bare && <ThemeToggle floating />}
       <main className={`la-main${wide ? ' wide' : ''}`}>{children}</main>
       <footer className="la-version">Version {typeof __BUILD_STAMP__ === 'string' ? __BUILD_STAMP__ : 'dev'}</footer>
     </div>

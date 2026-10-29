@@ -44,6 +44,8 @@ Everyone (employee, department head, CEO, developer) has a **My profile** button
 
 **Calendar tab** (everyone): public holidays are always shown. An employee also sees their own leaves; a department head the leaves of their department; a CEO or developer everyone's leaves plus **birthdays and work anniversaries**. Month view with an agenda list, usable on a phone.
 
+**Dark / light mode**: the round sun / moon button (top bar, or top right on the sign-in page) switches the look. *Dark* is the original deep-blue style; *Light* follows the Looper poster: soft grey page, white cards, electric-blue gradient, heavy black headings and coral glass cubes. The first visit follows the device setting; once someone presses the button the choice is remembered on that device (`localStorage` key `looper-theme`). It is applied before the first paint, so there is no flash. Front-end only: no database or function change.
+
 **Team grid** (CEO, developer and department heads; employees do not see it): the *Team grid* switch in the Calendar tab shows one row per person (grouped by department) and one column per day of the month. A **green** square is vacation, **red** a day off, **grey** unpaid leave, **blue** a public holiday (for everybody). A leave that is still waiting for approval is striped. Weekends and holidays inside a leave are not leave days, so they are not coloured as leave; the V / UL / DO columns count approved leave days. A CEO or developer can filter by department; a head only gets their own department (the database decides who is returned). Hover a square for the details.
 
 **Birthdays, anniversaries, analytics.** Birth date and start date are entered under *Employees → click the name → Edit details* (or in the add form, or in the profile card) and are visible only to the person, CEOs and developers. Averages only include people whose dates are filled in. 29 February birthdays are celebrated on 28 February in non-leap years; the first anniversary is the first full year.
@@ -177,7 +179,7 @@ supabase functions deploy change-email
 
 ```bash
 npm run lint
-npm test                              # time zone, CSV, calendar, leave, birthday and timesheet helpers
+npm test                              # time zone, CSV, calendar, leave, birthday, timesheet, team grid and theme helpers
 npm run build
 
 # Database (needs a throw-away Postgres 14+; never run against production)
