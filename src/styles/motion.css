@@ -1,0 +1,93 @@
+/* =====================================================================
+   Looper motion system
+   ---------------------------------------------------------------------
+   Every duration, easing and distance used by the landing page, the sign-in page, the menus and
+   the loader lives in this one block. Change a value here and everything that uses it follows.
+   The motion language is the infinity loop: things draw themselves, travel around, and return
+   to where they started without a jarring reset.
+
+   Signature moves (reused everywhere, never more than these):
+     1. The loop draws itself, then a comet keeps running along it   (.la-art, .la-loader)
+     2. Seamless ticker: the end of the strip is the start of the next (.la-ticker)
+     3. Masked line reveal for headlines                            (.la-mask)
+     4. Hover that eases out and back without a reset               (.la-step, .la-btn arrows)
+     5. A small loop that follows the pointer and loops once on click (.la-cursor)
+   Only transform and opacity are animated, apart from the stroke of the drawn loop.
+   ===================================================================== */
+:root {
+  --m-ease-out: cubic-bezier(.22, 1, .36, 1);       /* things arriving */
+  --m-ease-in-out: cubic-bezier(.65, 0, .35, 1);    /* things travelling */
+  --m-hover: 380ms;                                  /* hovers and presses (0.3 to 0.5 s) */
+  --m-reveal: 900ms;                                 /* things entering the page (0.6 to 1.2 s) */
+  --m-stagger: 90ms;                                 /* gap between neighbours in a sequence (0.06 to 0.15 s) */
+  --m-rise: 28px;                                    /* how far a reveal travels */
+  --m-draw: 1400ms;                                  /* the loop drawing itself */
+  --m-orbit: 7000ms;                                 /* one lap of the comet around the loop */
+  --m-marquee: 48s;                                  /* one full cycle of the ticker */
+  --m-ambient: 26s;                                  /* slow background drift */
+  --m-page: 520ms;                                   /* landing <-> sign-in */
+  --m-menu: 560ms;                                   /* full-screen menu opening */
+  --m-cursor-lag: 0.16;                              /* 0 to 1: how loosely the pointer loop follows (JS reads this) */
+  --m-parallax: 14;                                  /* px the hero loop shifts with the pointer (JS reads this) */
+}
+
+/* ---- headline: each line slides up from behind a mask ---- */
+.la-mask { display: block; overflow: hidden; padding-bottom: .14em; margin-bottom: -.14em; }
+.la-mask > span { display: block; animation: la-mask-up var(--m-reveal) var(--m-ease-out) calc(120ms + var(--i, 0) * var(--m-stagger) * 1.6) backwards; }
+@keyframes la-mask-up { from { transform: translate3d(0, 108%, 0); } }
+
+/* ---- scroll reveals (only armed when scripts run and motion is welcome) ---- */
+.js-reveal [data-reveal] {
+  opacity: 0; transform: translate3d(0, var(--m-rise), 0);
+  transition: opacity var(--m-reveal) var(--m-ease-out), transform var(--m-reveal) var(--m-ease-out);
+  transition-delay: calc(var(--i, 0) * var(--m-stagger));
+}
+.js-reveal [data-reveal].is-in { opacity: 1; transform: none; }
+
+/* ---- the loop: one path, three strokes (ghost track, drawn line, running comet) ---- */
+.la-art { display: block; width: 100%; height: auto; overflow: visible; }
+.la-art path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.la-art .echo { stroke: var(--primary); opacity: .1; }
+.la-art .ghost { stroke: var(--primary); opacity: .16; }
+.la-art .base {
+  stroke: var(--primary); stroke-dasharray: 100; stroke-dashoffset: calc(100 - 100 * var(--p, 1));
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--primary) 45%, transparent));
+}
+.la-art.draws .base { --p: 0; animation: la-art-draw var(--m-draw) var(--m-ease-in-out) 200ms forwards; }
+.la-art .comet { stroke: var(--on-primary, #fff); stroke-dasharray: 3.2 96.8; stroke-dashoffset: 0; opacity: 0; }
+.la-art.runs .comet { animation: la-art-show 0s linear var(--m-draw) forwards, la-art-run var(--m-orbit) linear var(--m-draw) infinite; }
+@keyframes la-art-draw { to { stroke-dashoffset: 0; } }
+@keyframes la-art-show { to { opacity: 1; } }
+@keyframes la-art-run { to { stroke-dashoffset: -100; } }
+
+/* ---- seamless ticker ---- */
+@keyframes la-marquee { to { transform: translate3d(-50%, 0, 0); } }
+
+/* ---- loader shown while the app or a page is really loading (appears only if it takes a moment) ---- */
+.la-loader { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--bg-page); }
+.la-loader .la-art { width: min(46vw, 200px); opacity: 0; animation: la-loader-in 320ms ease 160ms forwards; }
+@keyframes la-loader-in { to { opacity: 1; } }
+
+/* ---- pointer loop ---- */
+.la-cursor { position: fixed; left: 0; top: 0; z-index: 600; pointer-events: none; opacity: 0; color: var(--primary); will-change: transform; transition: opacity 200ms ease; }
+.la-cursor.on { opacity: .95; }
+.la-cursor-in { display: block; transform: translate(-50%, -50%) scale(var(--s, 1)); transition: transform var(--m-hover) var(--m-ease-out); }
+.la-cursor.link .la-cursor-in { --s: 1.7; }
+.la-cursor.spin .la-cursor-in svg { animation: la-cursor-spin 640ms var(--m-ease-in-out) 1; }
+@keyframes la-cursor-spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+
+/* ---- page change: sign-in and landing mirror each other (View Transitions where the browser has them) ---- */
+::view-transition-old(root) { animation: la-vt-out var(--m-page) var(--m-ease-out) both; }
+::view-transition-new(root) { animation: la-vt-in var(--m-page) var(--m-ease-out) both; }
+@keyframes la-vt-out { to { opacity: 0; transform: translate3d(0, -14px, 0); } }
+@keyframes la-vt-in { from { opacity: 0; transform: translate3d(0, 14px, 0); } }
+
+/* ---- calm fallbacks: nobody who asked for less motion gets any ---- */
+@media (prefers-reduced-motion: reduce) {
+  .la-mask > span, .la-art .base, .la-art .comet, .la-cursor *, .la-loader .la-art { animation: none !important; }
+  .la-art.draws .base { --p: 1; }
+  .la-art .comet { display: none; }
+  .la-loader .la-art { opacity: 1; }
+  .js-reveal [data-reveal] { opacity: 1; transform: none; transition: none; }
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+}

@@ -139,7 +139,7 @@ export default function BookTimeOff({ onBooked }) {
             )}
 
             <div className="la-field-grid">
-              <Field label="Approved by" id="leave-approver" hint="Your department head or a CEO. Either of them (or any CEO) can answer the request.">
+              <Field label="Approved by" id="leave-approver" hint="Your department head, a CEO or the head of a department that approves for everybody. Whoever you choose answers the request.">
                 <select id="leave-approver" className="la-input" value={form.approverId} onChange={set('approverId')} required>
                   <option value="" disabled>Select…</option>
                   {approvers.map((a) => (

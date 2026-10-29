@@ -124,7 +124,7 @@ export default function CalendarView({ directory, title = 'Calendar' }) {
             ))}
           </div>
         </fieldset>}
-        {isAdmin && (directory?.departments?.length ?? 0) > 0 && (
+        {(isAdmin || Boolean(headDepartment?.approves_all_leaves)) && (directory?.departments?.length ?? 0) > 0 && (
           <Field label="Department" id="cal-dept">
             <select id="cal-dept" className="la-input compact" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)}>
               <option value="">All departments</option>

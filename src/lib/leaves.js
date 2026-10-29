@@ -62,12 +62,17 @@ export function canCancelOwn(leave, today) {
 
 /**
  * Can this person approve / reject the request?
- * `me` = { id, role }, `headDepartmentId` = department they head or null.
+ * `me` = { id, role }; `headDepartment` = the department they head ({ id, approves_all_leaves }) or null.
+ * A CEO / developer decides everything, a head their own department, and the head of a department that
+ * "approves leaves company-wide" every request the database shows them (it only shows employees' leaves).
+ * Passing just a department id (older callers) still works.
  */
-export function canDecide(leave, me, headDepartmentId) {
+export function canDecide(leave, me, headDepartment) {
   if (leave.status !== 'pending' || leave.employee_id === me.id) return false;
   if (me.role === 'ceo' || me.role === 'developer') return true;
-  return Boolean(headDepartmentId) && leave.department_id === headDepartmentId;
+  const dept = headDepartment && typeof headDepartment === 'object' ? headDepartment : { id: headDepartment };
+  if (!dept.id) return false;
+  return Boolean(dept.approves_all_leaves) || leave.department_id === dept.id;
 }
 
 /** Returns a message for the first problem found, or '' when the form can be sent. */

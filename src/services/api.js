@@ -46,7 +46,7 @@ export async function fetchMyEmployee(authUserId) {
 /** Department the signed-in employee heads, or null. */
 export async function fetchHeadedDepartment(employeeId) {
   return unwrap(
-    await supabase.from('departments').select('id, name').eq('head_employee_id', employeeId).maybeSingle(),
+    await supabase.from('departments').select('id, name, approves_all_leaves').eq('head_employee_id', employeeId).maybeSingle(),
   );
 }
 
@@ -133,7 +133,7 @@ export async function listEmployees() {
 
 export async function listDepartments() {
   return (
-    unwrap(await supabase.from('departments').select('id, name, is_active, head_employee_id').order('name')) ?? []
+    unwrap(await supabase.from('departments').select('id, name, is_active, head_employee_id, approves_all_leaves').order('name')) ?? []
   );
 }
 

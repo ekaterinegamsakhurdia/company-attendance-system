@@ -1,0 +1,89 @@
+/* =====================================================================
+   The signed-in app, in the same editorial language as the landing page.
+   Same tokens, same --m-* motion variables (motion.css), same fonts. The motion inside the dashboards stays calm:
+   one headline reveal when the page opens, a soft stagger when you change tabs, and hovers that ease out and back.
+   ===================================================================== */
+
+/* ---------------- small facts line above headings ---------------- */
+.la-page .la-kicker { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--text-body); }
+.la-page .la-kicker i { width: 4px; height: 4px; border-radius: 50%; background: var(--primary); flex: none; }
+
+@media (max-width: 479px) { .la-page .la-kicker { font-size: 11px; letter-spacing: .1em; gap: 4px 10px; } }
+
+/* ---------------- dashboard header ---------------- */
+.la-hero.editorial { padding: 8px 0 4px; flex-direction: column; align-items: flex-start; gap: 0; }
+.la-hero.editorial .la-hero-text { gap: 12px; }
+.la-hero.editorial .la-h1 { font-family: var(--font-display); font-size: clamp(38px, 6vw, 68px); font-weight: 800; line-height: .98; letter-spacing: -0.055em !important; text-wrap: balance; }
+.la-hero.editorial .la-h1 span { color: inherit; }
+.la-hero.editorial .la-h1 em { font-family: var(--font-serif); font-style: italic; font-weight: 400; font-size: 1.1em; letter-spacing: -0.02em; }
+.la-main > .la-hero.editorial { animation: none; }
+
+/* ---------------- tabs ---------------- */
+.la-tabs { padding: 6px; border-radius: 22px; }
+.la-tab-ind { border-radius: 16px; }
+.la-tab { font-size: 14px; letter-spacing: -0.01em; padding: 10px 15px; border-radius: 16px; transition: color var(--m-hover) var(--m-ease-out), background var(--m-hover) var(--m-ease-out); }
+.la-tab svg { transition: transform var(--m-hover) var(--m-ease-out); }
+@media (hover: hover) { .la-tab:hover svg { transform: translate3d(0, -1px, 0) scale(1.08); } }
+
+/* ---------------- tab pages: a soft stagger when a tab opens ---------------- */
+.la-main > .la-panel { animation: none; }
+.la-main > .la-panel > * { animation: la-rise-soft var(--m-reveal) var(--m-ease-out) calc(var(--k, 0) * var(--m-stagger)) backwards; }
+.la-main > .la-panel > :nth-child(1) { --k: 0; }
+.la-main > .la-panel > :nth-child(2) { --k: 1; }
+.la-main > .la-panel > :nth-child(3) { --k: 2; }
+.la-main > .la-panel > :nth-child(4) { --k: 3; }
+.la-main > .la-panel > :nth-child(n+5) { --k: 4; }
+@keyframes la-rise-soft { from { opacity: 0; transform: translate3d(0, calc(var(--m-rise) * .55), 0); } }
+
+/* ---------------- cards ---------------- */
+.la-card { border-radius: 26px; }
+@media (min-width: 768px) { .la-card { padding: 32px 36px 36px; } }
+.la-card-head { margin-bottom: 24px; }
+.la-card-head .la-h2 { font-family: var(--font-display); font-size: clamp(20px, 2.2vw, 24px); font-weight: 800; letter-spacing: -0.04em; line-height: 1.15; }
+.la-card-sub { font-size: 12.5px; letter-spacing: .02em; }
+.la-icon-tile { border-radius: 14px; }
+
+/* ---------------- big numbers ---------------- */
+.la-stat { padding: 20px 20px 18px 22px; border-radius: 20px; gap: 0; transition: transform var(--m-hover) var(--m-ease-out), border-color var(--m-hover) var(--m-ease-out), box-shadow var(--m-hover) var(--m-ease-out); }
+.la-stat-num { font-family: var(--font-display); font-size: clamp(40px, 4.6vw, 64px); font-weight: 800; letter-spacing: -0.065em; line-height: .95; margin: 6px 0 8px; }
+.la-stat-label { font-size: 11.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.la-stat .la-bar { margin-top: 10px; }
+@media (hover: hover) { .la-stat:hover { transform: translate3d(0, -4px, 0); border-color: var(--border-strong); box-shadow: var(--shadow-card); } }
+.la-stat:active { transform: translate3d(0, -1px, 0) scale(.992); }
+
+/* ---------------- clock-in card ---------------- */
+.la-clock { position: relative; isolation: isolate; }
+.la-clock-art { position: absolute; z-index: -1; right: 0; top: -78px; width: clamp(130px, 22vw, 200px); pointer-events: none; opacity: .85; }
+@media (max-width: 599px) { .la-clock-art { display: none; } }
+.la-clock-greet { font-family: var(--font-display); font-size: clamp(22px, 2.6vw, 30px); letter-spacing: -0.045em; }
+.la-clock-greet em, .la-clock-status em { font-family: var(--font-serif); font-style: italic; font-weight: 400; font-size: 1.12em; letter-spacing: -0.02em; }
+.la-clock-time { font-family: var(--font-display); font-size: clamp(56px, 7.5vw, 84px); letter-spacing: -0.07em; }
+@media (max-width: 479px) { .la-clock-time { font-size: 52px; } .la-clock-greet { font-size: 22px; } }
+.la-btn.la-clock-btn .la-arrow svg { width: 22px; height: 22px; }
+
+/* ---------------- tables ---------------- */
+.la-th { font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
+
+/* ---------------- footer ---------------- */
+.la-foot { margin-top: 8px; padding: 22px 24px 28px; border-top: 1px solid var(--line-soft); }
+.la-foot-in { max-width: 1320px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 28px; font-size: 12.5px; color: var(--text-muted); }
+.la-foot-brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 600; color: var(--text-body); }
+.la-foot-brand svg { color: var(--primary); }
+.la-foot-brand i { width: 4px; height: 4px; border-radius: 50%; background: var(--primary); }
+.la-foot .la-version { padding: 0; opacity: .8; margin-left: auto; }
+.la-foot-top { display: inline-flex; align-items: center; gap: 8px; background: none; border: 0; border-bottom: 1px solid var(--border-strong); padding: 4px 2px; font: inherit; font-weight: 600; color: var(--text-heading); cursor: pointer; transition: border-color var(--m-hover) var(--m-ease-out); }
+.la-foot-top:hover { border-color: var(--primary); }
+.la-foot-top:hover .la-arrow.up { transform: translate3d(0, -3px, 0); }
+@media (max-width: 639px) { .la-foot { padding: 18px 16px 24px; } .la-foot .la-version { margin-left: 0; } }
+/* light mode: the page ends on the poster's blue band, so the footer is white on blue */
+:root[data-theme="light"] .la-foot { border-top-color: color-mix(in srgb, var(--on-primary) 28%, transparent); }
+:root[data-theme="light"] .la-foot-in, :root[data-theme="light"] .la-foot-brand, :root[data-theme="light"] .la-foot-brand svg, :root[data-theme="light"] .la-foot-top, :root[data-theme="light"] .la-foot .la-version { color: var(--on-primary); }
+:root[data-theme="light"] .la-foot-brand i { background: var(--on-primary); }
+:root[data-theme="light"] .la-foot-top { border-bottom-color: color-mix(in srgb, var(--on-primary) 55%, transparent); }
+:root[data-theme="light"] .la-foot-top:hover { border-bottom-color: var(--on-primary); }
+
+/* ---------------- calm fallbacks ---------------- */
+@media (prefers-reduced-motion: reduce) {
+  .la-main > .la-panel > * { animation: none !important; }
+  .la-stat:hover { transform: none; }
+}

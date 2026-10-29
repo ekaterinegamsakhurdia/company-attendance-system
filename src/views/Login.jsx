@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { LogIn } from 'lucide-react';
 import { Alert, AuthLayout, SectionCard } from '../components/ui';
 import { requestPasswordReset, signIn } from '../services/api';
+import { navigate } from '../lib/route';
 
 export default function Login() {
   const [mode, setMode] = useState('login'); // 'login' | 'reset'
@@ -34,7 +35,7 @@ export default function Login() {
   const isLogin = mode === 'login';
 
   return (
-    <AuthLayout subtitle="Employee Attendance System">
+    <AuthLayout subtitle="Employee Attendance System" onBack={() => navigate('home')}>
       <SectionCard
         icon={LogIn}
         eyebrow={isLogin ? 'Sign in with your work email.' : 'We will email you a link to set a new password.'}

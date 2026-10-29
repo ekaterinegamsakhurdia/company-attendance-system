@@ -18,7 +18,7 @@
   --danger: #ff8a8a;
   --grad-primary: linear-gradient(135deg, #3B9BFF, #1A5CFF);
   --grad-hero: radial-gradient(ellipse at 70% 40%, #0A1F4D 0%, #050B18 70%);
-  --font: "Noto Sans Georgian", Inter, system-ui, sans-serif;
+  --font: "Noto Sans Georgian", "Inter Variable", Inter, system-ui, sans-serif;
   --ease: cubic-bezier(.22, 1, .36, 1);
   --shadow-card: 0 1px 0 rgba(255,255,255,.03) inset, 0 20px 44px -28px rgba(0,0,0,.8);
   --shadow-pop: 0 24px 60px -12px rgba(0,0,0,.65), 0 0 0 1px rgba(120,160,255,.1);
@@ -798,7 +798,7 @@ button.la-user-btn:hover { background: var(--primary-soft); border-color: var(--
   --accent-text: #0A3FE0;
   --grad-primary: linear-gradient(135deg, #2F6BFF, #0A3FE0);
   --grad-hero: none;
-  --font: Inter, "Noto Sans Georgian", system-ui, sans-serif;
+  --font: "Inter Variable", Inter, "Noto Sans Georgian", system-ui, sans-serif;
   --shadow-card: 0 1px 2px rgba(10,20,50,.05), 0 26px 50px -30px rgba(20,50,140,.32);
   --shadow-pop: 0 28px 70px -16px rgba(10,30,100,.35), 0 0 0 1px rgba(10,20,50,.06);
   --glow: 0 8px 24px -8px rgba(21,88,255,.55);
@@ -941,3 +941,87 @@ button.la-user-btn:hover { background: var(--primary-soft); border-color: var(--
 :root[data-theme="light"] .la-bub.office .la-avatar { box-shadow: 0 0 0 2.5px #fff, 0 0 0 4.5px var(--ok), 0 10px 24px -6px rgba(14,138,85,.5); }
 :root[data-theme="light"] .la-bub.online .la-avatar { box-shadow: 0 0 0 2.5px #fff, 0 0 0 4.5px #8b6df0; }
 :root[data-theme="light"] .la-bub-badge { border-color: #fff; }
+
+/* =====================================================================
+   Clock-in first: greeting, big button, and the infinity-loop moment
+   ===================================================================== */
+.la-brand { text-decoration: none; border-radius: 12px; padding: 2px 8px 2px 2px; margin-left: -2px; transition: background 180ms ease, transform 180ms var(--ease); -webkit-tap-highlight-color: transparent; }
+.la-brand:hover { background: var(--primary-soft); }
+.la-brand:active { transform: scale(.97); }
+.la-brand:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.la-brand .la-mark { display: block; }
+.la-brand-name { white-space: nowrap; }
+@media (max-width: 359px) { .la-brand-name { font-size: 14px; } }
+
+.la-clock { display: flex; flex-direction: column; gap: 14px; margin-bottom: 18px; }
+.la-clock-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.la-clock-greet { margin: 0; color: var(--text-heading); font-size: 22px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; }
+.la-clock-status { margin: 4px 0 0; color: var(--text-body); font-size: 14px; }
+.la-clock-time { margin: 0; color: var(--text-heading); font-size: 40px; font-weight: 800; letter-spacing: -0.04em; line-height: 1; font-variant-numeric: tabular-nums; }
+.la-clock.working .la-clock-time { color: var(--ok); }
+.la-clock .la-mode { margin: 0; }
+.la-clock .la-toolbar { margin: 0; }
+
+.la-btn.la-clock-btn {
+  min-height: 76px; font-size: 20px; font-weight: 800; letter-spacing: -0.01em; border-radius: 999px; gap: 12px;
+}
+.la-btn.la-clock-btn svg { width: 26px; height: 26px; }
+.la-btn.primary.la-clock-btn:not(:disabled) { animation: la-call 2.8s ease-in-out infinite; }
+@keyframes la-call { 0%, 100% { box-shadow: 0 0 0 1px rgba(255,255,255,.16) inset, 0 8px 22px -8px rgba(47,140,255,.7), 0 0 0 0 rgba(47,140,255,.35); } 60% { box-shadow: 0 0 0 1px rgba(255,255,255,.16) inset, 0 8px 22px -8px rgba(47,140,255,.7), 0 0 0 14px rgba(47,140,255,0); } }
+@media (max-width: 479px) {
+  .la-clock-top { flex-direction: column-reverse; gap: 6px; }
+  .la-clock-time { font-size: 34px; }
+  .la-clock-greet { font-size: 20px; }
+  .la-btn.la-clock-btn { min-height: 72px; font-size: 18px; }
+}
+
+/* the moment itself */
+.la-ci {
+  position: fixed; inset: 0; z-index: 400; display: flex; align-items: center; justify-content: center; padding: 24px;
+  background: color-mix(in srgb, var(--bg-page) 90%, transparent);
+  -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+  font-family: var(--font); color: var(--text-body);
+  animation: la-fade 260ms ease both;
+}
+.la-ci *, .la-ci *::before, .la-ci *::after { box-sizing: border-box; }
+.la-ci-inner { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 28px; max-width: 680px; width: 100%; }
+.la-ci-loop { width: min(78vw, 340px); height: auto; overflow: visible; }
+.la-ci-loop path { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-width: 10; }
+.la-ci-loop .ghost { stroke: var(--primary); opacity: .12; }
+.la-ci-loop .base {
+  stroke: var(--primary); stroke-dasharray: 100; stroke-dashoffset: 100;
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--primary) 55%, transparent));
+  animation: la-ci-draw 1.25s cubic-bezier(.65, 0, .35, 1) forwards;
+}
+.la-ci-loop .comet {
+  stroke: #fff; stroke-width: 5; stroke-dasharray: 9 91; stroke-dashoffset: 0; opacity: 0;
+  animation: la-ci-show 0s linear 1.25s forwards, la-ci-run 1.5s linear 1.25s infinite;
+}
+.la-ci.done .comet { animation: none; opacity: 0; }
+.la-ci.done .base { animation: la-ci-draw 1.25s cubic-bezier(.65, 0, .35, 1) forwards, la-ci-pulse 900ms ease-out 1.25s 1; }
+@keyframes la-ci-draw { to { stroke-dashoffset: 0; } }
+@keyframes la-ci-show { to { opacity: 1; } }
+@keyframes la-ci-run { to { stroke-dashoffset: -100; } }
+@keyframes la-ci-pulse { 40% { stroke-width: 13; } }
+.la-ci-wait { margin: 0; color: var(--text-body); font-size: 15px; font-weight: 600; letter-spacing: .01em; }
+.la-ci-msg { display: flex; flex-direction: column; align-items: center; gap: 8px; animation: la-rise 560ms var(--ease) both; }
+.la-ci-title { margin: 0; text-wrap: balance; color: var(--text-heading); font-size: clamp(28px, 6vw, 44px); font-weight: 800; letter-spacing: -0.035em; line-height: 1.05; }
+.la-ci-sub { margin: 0; color: var(--text-heading); font-size: clamp(18px, 3.4vw, 22px); font-weight: 600; }
+.la-ci-meta { margin: 0; color: var(--text-muted); font-size: 14px; }
+.la-ci-btn { margin-top: 18px; min-width: 180px; min-height: 52px; font-size: 16px; font-weight: 700; }
+@media (prefers-reduced-motion: reduce) {
+  .la-ci, .la-ci *, .la-btn.la-clock-btn { animation: none !important; transition: none !important; }
+  .la-ci-loop .base { stroke-dashoffset: 0; }
+  .la-ci-loop .comet { display: none; }
+}
+
+/* light mode: the poster's blue on soft grey */
+:root[data-theme="light"] .la-clock-greet, :root[data-theme="light"] .la-clock-time { letter-spacing: -0.045em; }
+:root[data-theme="light"] .la-clock.working .la-clock-time { color: var(--ok); }
+:root[data-theme="light"] .la-btn.primary.la-clock-btn:not(:disabled) { animation-name: la-call-light; }
+@keyframes la-call-light { 0%, 100% { box-shadow: 0 0 0 1px rgba(255,255,255,.2) inset, 0 10px 24px -10px rgba(21,88,255,.8), 0 0 0 0 rgba(21,88,255,.3); } 60% { box-shadow: 0 0 0 1px rgba(255,255,255,.2) inset, 0 10px 24px -10px rgba(21,88,255,.8), 0 0 0 14px rgba(21,88,255,0); } }
+:root[data-theme="light"] .la-ci { background: color-mix(in srgb, var(--bg-page) 92%, transparent); }
+
+/* What search engines (and people with scripts off) see until the app starts */
+.la-seo { max-width: 640px; margin: 0 auto; padding: 48px 24px; color: var(--text-body); font-family: var(--font); line-height: 1.6; }
+.la-seo h1 { color: var(--text-heading); font-size: 34px; letter-spacing: -0.03em; margin: 0 0 12px; }

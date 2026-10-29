@@ -1,29 +1,41 @@
+import { lazy, Suspense, useEffect, useRef } from 'react';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { ToastProvider } from './components/Toast';
-import { Alert, Hero, Message, PillButton, Shell } from './components/ui';
+import { Alert, Hero, PillButton, Shell } from './components/ui';
+import LoopLoader from './components/LoopLoader';
 import Login from './views/Login';
 import SetPassword from './views/SetPassword';
-import EmployeeDashboard from './views/EmployeeDashboard';
-import CeoDashboard from './views/CeoDashboard';
-import DeveloperDashboard from './views/DeveloperDashboard';
 import { isPasswordLink } from './lib/authLink';
+import { replaceRoute } from './lib/route';
+import { useRoute } from './hooks/useRoute';
+
+// Each page is its own chunk: the sign-in visit downloads only the landing page, and a signed-in person
+// downloads only the dashboard that belongs to their role.
+const Landing = lazy(() => import('./views/Landing'));
+const EmployeeDashboard = lazy(() => import('./views/EmployeeDashboard'));
+const CeoDashboard = lazy(() => import('./views/CeoDashboard'));
+const DeveloperDashboard = lazy(() => import('./views/DeveloperDashboard'));
 
 function Gate() {
   const { session, employee, loading, profileError, signOut } = useAuth();
+  const route = useRoute();
+  const hadSession = useRef(false);
 
-  if (loading) {
-    return (
-      <Shell bare>
-        <div className="la-auth">
-          <section className="la-card">
-            <Message>Loading…</Message>
-          </section>
-        </div>
-      </Shell>
-    );
-  }
+  // Signing in leaves the "#login" address behind; signing out lands on the sign-in page.
+  useEffect(() => {
+    if (loading) return;
+    if (session) {
+      hadSession.current = true;
+      if (window.location.hash === '#login') replaceRoute('home');
+    } else if (hadSession.current) {
+      hadSession.current = false;
+      replaceRoute('login');
+    }
+  }, [session, loading]);
 
-  if (!session) return <Login />;
+  if (loading) return <LoopLoader />;
+
+  if (!session) return route === 'login' ? <Login /> : <Landing />;
 
   if (!employee) {
     return (
@@ -55,7 +67,9 @@ export default function App() {
   return (
     <ToastProvider>
       <AuthProvider>
-        <Gate />
+        <Suspense fallback={<LoopLoader />}>
+          <Gate />
+        </Suspense>
       </AuthProvider>
     </ToastProvider>
   );

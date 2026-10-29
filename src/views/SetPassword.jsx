@@ -14,6 +14,20 @@ const friendly = (message) => {
 };
 
 export default function SetPassword() {
+  // Invitation and reset links are for one person: keep this page out of search results.
+  useEffect(() => {
+    const previous = document.querySelector('meta[name="robots"]');
+    const noindex = document.createElement('meta');
+    noindex.name = 'robots';
+    noindex.content = 'noindex, nofollow';
+    previous?.remove();
+    document.head.appendChild(noindex);
+    return () => {
+      noindex.remove();
+      if (previous) document.head.appendChild(previous);
+    };
+  }, []);
+
   const [state, setState] = useState(authLink.tokenHash && !authLink.error ? 'confirm' : 'checking'); // confirm | checking | ready | invalid | done
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');

@@ -6,12 +6,15 @@ import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { listDevices } from '../services/api';
 import { AttendancePanel, HistoryCard } from './AttendancePanel';
 import { DevicesCard, RegisterDeviceModal } from './DevicesCard';
+import ClockInCelebration from './ClockInCelebration';
+import { formatTime } from '../lib/time';
 
 /**
  * The signed-in person's own clock-in/out: network status, biometric devices,
- * today's record and (optionally) their recent history.
+ * today's record and (optionally) their recent history. `between` is shown after the clock-in card and before the history,
+ * so a page can put the clock-in first and its own cards next. The clock-in animation lives here too.
  */
-export default function MyAttendanceSection({ showHistory = true, historyTitle }) {
+export default function MyAttendanceSection({ showHistory = true, historyTitle, between = null }) {
   const { employee, timezone, settings } = useAuth();
   const requireNetwork = settings.require_company_network;
   const requireBiometric = settings.require_biometric;
@@ -52,7 +55,17 @@ export default function MyAttendanceSection({ showHistory = true, historyTitle }
         />
       )}
 
+      {between}
+
       {showHistory && <HistoryCard rows={mine.history} loading={mine.loading} timezone={timezone} title={historyTitle} />}
+
+      <ClockInCelebration
+        celebration={mine.celebration}
+        name={employee.first_name}
+        time={mine.today ? formatTime(mine.today.clock_in, timezone) : null}
+        mode={mine.today?.work_mode}
+        onClose={mine.dismissCelebration}
+      />
 
       {registering && (
         <RegisterDeviceModal

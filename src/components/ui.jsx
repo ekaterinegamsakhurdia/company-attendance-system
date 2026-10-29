@@ -1,10 +1,24 @@
 import { useLayoutEffect, useRef, useState } from 'react';
-import { Layers, LogOut, CheckCircle2, AlertCircle, Inbox, Moon, Sun } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, LayoutGrid, LogOut, CheckCircle2, AlertCircle, Inbox, Moon, Sun } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 import Avatar from './Avatar';
+import LooperMark from './LooperMark';
+import LoopArt from './LoopArt';
+import LoopCursor from './LoopCursor';
+import OverlayMenu from './OverlayMenu';
 
 export function Eyebrow({ children }) {
   return <div className="la-eyebrow">{children}</div>;
+}
+
+/** Small arrow glyph that nudges when its parent link or button is hovered or focused (see .la-arrow in landing.css). */
+export function Arrow({ dir = 'right' }) {
+  const Icon = dir === 'down' ? ArrowDown : dir === 'up' ? ArrowUp : ArrowRight;
+  return (
+    <span className={`la-arrow ${dir}`} aria-hidden="true">
+      <Icon size={16} />
+    </span>
+  );
 }
 
 export function IconTile({ icon: Icon }) {
@@ -149,6 +163,7 @@ export function Field({ label, id, hint, children }) {
 
 export function Tabs({ tabs, value, onChange }) {
   const trackRef = useRef(null);
+  const [menu, setMenu] = useState(false);
   const [ind, setInd] = useState(null);
   const [edge, setEdge] = useState({ start: false, end: false });
 
@@ -181,7 +196,7 @@ export function Tabs({ tabs, value, onChange }) {
   }, [value, tabs.length]);
 
   return (
-    <div className={`la-tabs-wrap${edge.start ? ' fade-start' : ''}${edge.end ? ' fade-end' : ''}`}>
+    <div className={`la-tabs-wrap has-more${edge.start ? ' fade-start' : ''}${edge.end ? ' fade-end' : ''}`}>
       <div className="la-tabs" role="tablist" ref={trackRef}>
         {ind && (
           <span
@@ -209,7 +224,40 @@ export function Tabs({ tabs, value, onChange }) {
           );
         })}
       </div>
+      {/* Narrow screens: the strip scrolls, so a button lists every section at once. */}
+      <button type="button" className="la-tabs-more" onClick={() => setMenu(true)} aria-haspopup="dialog" aria-label="All sections" title="All sections">
+        <LayoutGrid size={17} aria-hidden="true" />
+      </button>
+      <OverlayMenu
+        open={menu}
+        onClose={() => setMenu(false)}
+        title="Sections"
+        items={tabs.map((t) => ({ id: t.id, label: t.label, icon: t.icon, current: value === t.id, onSelect: () => onChange(t.id) }))}
+      />
     </div>
+  );
+}
+
+/**
+ * The logo in the top-left corner: a link to the home page. Pressing it reloads the app, which always opens on the
+ * attendance page (My attendance for employees, Today for CEOs and developers), so it doubles as "refresh and start over".
+ * Ctrl / Cmd / middle click still open it in a new tab.
+ */
+export function BrandLink() {
+  const go = (e) => {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    const { pathname, search, hash } = window.location;
+    if (pathname === '/' && !search && !hash) window.location.reload();
+    else window.location.assign('/');
+  };
+  return (
+    <a className="la-brand" href="/" onClick={go} aria-label="Looper Agency: refresh and go to my attendance" title="My attendance">
+      <span className="la-logo" aria-hidden="true">
+        <LooperMark size={15} stroke={12} />
+      </span>
+      <span className="la-brand-name">Looper Agency</span>
+    </a>
   );
 }
 
@@ -241,12 +289,7 @@ export function Shell({ children, wide, onLogout, user, roleLabel, avatarPath, o
       {!bare && (
         <header className="la-nav">
           <div className={`la-nav-inner${wide ? ' wide' : ''}`}>
-            <div className="la-brand">
-              <span className="la-logo" aria-hidden="true">
-                <Layers size={18} />
-              </span>
-              <span>Looper Agency</span>
-            </div>
+            <BrandLink />
             <div className="la-nav-right">
               <ThemeToggle />
               {user && (
@@ -285,20 +328,54 @@ export function Shell({ children, wide, onLogout, user, roleLabel, avatarPath, o
       )}
       {bare && <ThemeToggle floating />}
       <main className={`la-main${wide ? ' wide' : ''}`}>{children}</main>
-      <footer className="la-version">Version {typeof __BUILD_STAMP__ === 'string' ? __BUILD_STAMP__ : 'dev'}</footer>
+      <footer className="la-foot">
+        <div className="la-foot-in">
+          <span className="la-foot-brand">
+            <LooperMark size={11} stroke={13} /> Looper Agency <i aria-hidden="true" /> Employee Attendance System
+          </span>
+          <span className="la-version">Version {typeof __BUILD_STAMP__ === 'string' ? __BUILD_STAMP__ : 'dev'}</span>
+          <button type="button" className="la-foot-top" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+            Back to top <Arrow dir="up" />
+          </button>
+        </div>
+      </footer>
     </div>
   );
 }
 
-/** Page header. With `title` it is a compact dashboard header, otherwise the original brand banner. */
-export function Hero({ eyebrow, title, subtitle }) {
+/**
+ * Page header. With `title` it is the dashboard header: a small line of facts (`eyebrow` and `subtitle`, for example the
+ * role and today's date) above a large headline; `emphasis` is the part of the title set in the elegant italic.
+ * Without `title` it is the original brand banner.
+ */
+export function Hero({ eyebrow, title, emphasis, subtitle }) {
   if (title) {
+    const at = emphasis ? title.indexOf(emphasis) : -1;
     return (
-      <div className="la-hero compact">
+      <div className="la-hero compact editorial">
         <div className="la-hero-text">
-          {eyebrow && <span className="la-badge">{eyebrow}</span>}
-          <h1 className="la-h1">{title}</h1>
-          {subtitle && <p>{subtitle}</p>}
+          {(eyebrow || subtitle) && (
+            <p className="la-kicker">
+              {eyebrow && <span>{eyebrow}</span>}
+              {eyebrow && subtitle && <i aria-hidden="true" />}
+              {subtitle && <span>{subtitle}</span>}
+            </p>
+          )}
+          <h1 className="la-h1">
+            <span className="la-mask">
+              <span>
+                {at >= 0 ? (
+                  <>
+                    {title.slice(0, at)}
+                    <em>{emphasis}</em>
+                    {title.slice(at + emphasis.length)}
+                  </>
+                ) : (
+                  title
+                )}
+              </span>
+            </span>
+          </h1>
         </div>
       </div>
     );
@@ -314,22 +391,38 @@ export function Hero({ eyebrow, title, subtitle }) {
   );
 }
 
-/** Centered brand block + card used by the sign-in and password pages. */
-export function AuthLayout({ subtitle, children }) {
+/**
+ * Brand block + card used by the sign-in and password pages. On wide screens a large drawn loop sits beside the card
+ * (decoration only); `onBack` adds a "Back to home" link for the sign-in page.
+ */
+export function AuthLayout({ subtitle, children, onBack }) {
   return (
     <Shell bare>
-      <div className="la-auth">
-        <div className="la-auth-brand">
-          <span className="la-logo big" aria-hidden="true">
-            <Layers size={26} />
-          </span>
-          <h1 className="la-h1">
-            Looper <span>Agency</span>
-          </h1>
-          {subtitle && <p>{subtitle}</p>}
+      <div className="la-auth la-auth-split">
+        <aside className="la-auth-art" aria-hidden="true">
+          <LoopArt draw run echoes parallax stroke={2.2} />
+          <p className="la-auth-art-copy">Clock in. Book time off. <em>Stay in the loop.</em></p>
+        </aside>
+        <div className="la-auth-main">
+          {onBack && (
+            <button type="button" className="la-auth-back" onClick={onBack}>
+              <span className="la-arrow left" aria-hidden="true"><ArrowLeft size={15} /></span>
+              Back to home
+            </button>
+          )}
+          <div className="la-auth-brand">
+            <span className="la-logo big" aria-hidden="true">
+              <LooperMark size={26} stroke={10} />
+            </span>
+            <h1 className="la-h1">
+              Looper <span>Agency</span>
+            </h1>
+            {subtitle && <p>{subtitle}</p>}
+          </div>
+          {children}
         </div>
-        {children}
       </div>
+      <LoopCursor />
     </Shell>
   );
 }

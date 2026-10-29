@@ -22,6 +22,7 @@ psql -v ON_ERROR_STOP=1 -q -d $DB -f 10_tests_online_overtime.sql
 psql -v ON_ERROR_STOP=1 -q -d $DB -f 11_tests_office_today.sql
 psql -v ON_ERROR_STOP=1 -q -d $DB -f 12_tests_leave_imported.sql
 psql -v ON_ERROR_STOP=1 -q -d $DB -f 13_tests_bulk_leave_delete.sql
+psql -v ON_ERROR_STOP=1 -q -d $DB -f 14_tests_leave_approver_all.sql
 
 # First-developer script: promotes a normal login, refuses to consume the only CEO
 psql -v ON_ERROR_STOP=1 -q -d $DB -c "insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000f9','first.dev@x.test')"

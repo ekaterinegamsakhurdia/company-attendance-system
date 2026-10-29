@@ -48,7 +48,7 @@ const longDate = () => new Date().toLocaleDateString('en-GB', { weekday: 'long',
 export default function DeveloperDashboard() {
   const { employee, myProfile, signOut } = useAuth();
   const [mine, setMine] = useState(false);
-  const [tab, setTab] = useState('accounts');
+  const [tab, setTab] = useState('today');
 
   const employees = useLoad(listEmployees);
   const departments = useLoad(listDepartments);
@@ -72,7 +72,7 @@ export default function DeveloperDashboard() {
   return (
     <ProfileCardProvider directory={directory}>
     <Shell wide onLogout={signOut} user={employee} roleLabel="Developer" avatarPath={myProfile?.avatar_path} onProfile={() => setMine(true)}>
-      <Hero eyebrow="Developer Dashboard" title={`Welcome, ${employee.first_name}.`} subtitle={longDate()} />
+      <Hero eyebrow="Developer Dashboard" title={`Welcome, ${employee.first_name}.`} emphasis={employee.first_name} subtitle={longDate()} />
 
       <Tabs tabs={TABS.map((t) => (t.id === 'approve' ? { ...t, label: <TabLabel text="To approve" count={waiting} /> } : t))} value={tab} onChange={setTab} />
       {loadError && <Alert error>{loadError}</Alert>}

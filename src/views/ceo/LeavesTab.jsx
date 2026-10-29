@@ -194,7 +194,7 @@ export default function LeavesTab({ pending, directory }) {
               ))}
             </select>
           </Field>
-          {isAdmin && (directory?.departments?.length ?? 0) > 0 && (
+          {(isAdmin || Boolean(headDepartment?.approves_all_leaves)) && (directory?.departments?.length ?? 0) > 0 && (
             <Field label="Department" id="lv-dept">
               <select id="lv-dept" className="la-input compact" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)}>
                 <option value="">All</option>
@@ -279,7 +279,7 @@ export default function LeavesTab({ pending, directory }) {
                 <td className="la-td wrap">{[l.comment, l.decision_comment].filter(Boolean).join(' · ') || '-'}</td>
                 <td className="la-td">
                   <div className="la-toolbar">
-                    {canDecide(l, me, headDepartment?.id) && (
+                    {canDecide(l, me, headDepartment) && (
                       <>
                         <PillButton size="sm" onClick={() => setDeciding({ leave: l, decision: 'approved' })}>
                           Approve

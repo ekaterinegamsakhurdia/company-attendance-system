@@ -490,7 +490,7 @@ export function Departments({ directory }) {
       {departments.length === 0 ? (
         <Message>No departments yet.</Message>
       ) : (
-        <DataTable headers={['Name', 'Head', 'Employees', 'Status', '']} minWidth={760}>
+        <DataTable headers={['Name', 'Head', 'Employees', 'Approves all leaves', 'Status', '']} minWidth={900}>
           {departments.map((d) => (
             <tr key={d.id}>
               <td className="la-td">
@@ -522,6 +522,22 @@ export function Departments({ directory }) {
                 </select>
               </td>
               <td className="la-td">{members(d.id).length}</td>
+              <td className="la-td">
+                <label className="la-check" title="When on, the head of this department sees and approves the leaves of every employee and every other head.">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(d.approves_all_leaves)}
+                    disabled={busy}
+                    onChange={(e) =>
+                      run(
+                        () => updateDepartment(d.id, { approves_all_leaves: e.target.checked }),
+                        e.target.checked ? `The head of ${d.name} now approves everybody's leaves.` : `The head of ${d.name} approves only their own department.`,
+                      )
+                    }
+                  />
+                  <span>{d.approves_all_leaves ? 'Everybody' : 'Own team'}</span>
+                </label>
+              </td>
               <td className="la-td">{d.is_active ? <Pill tone="ok">Active</Pill> : <Pill tone="off">Inactive</Pill>}</td>
               <td className="la-td">
                 <div className="la-toolbar">

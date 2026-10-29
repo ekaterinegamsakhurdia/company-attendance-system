@@ -21,7 +21,7 @@ export default function ToApprove({ pending, onChanged }) {
   const [busyId, setBusyId] = useState(null);
 
   const waiting = useMemo(
-    () => (pending.data ?? []).filter((l) => canDecide(l, me, headDepartment?.id)).sort((a, b) => a.start_date.localeCompare(b.start_date)),
+    () => (pending.data ?? []).filter((l) => canDecide(l, me, headDepartment)).sort((a, b) => a.start_date.localeCompare(b.start_date)),
     [pending.data, me, headDepartment],
   );
   const years = [...new Set(waiting.map((l) => parseYmd(l.start_date).y))].sort();

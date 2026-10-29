@@ -2,9 +2,46 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#050B18" />
+    <title>Looper Agency Attendance | Employee Attendance System</title>
+    <meta name="description" content="Looper Agency Attendance: clock in and out, track working hours, book vacation and days off, and see the whole team's calendar in one place." />
+    <meta name="application-name" content="Looper Agency Attendance" />
+    <meta name="apple-mobile-web-app-title" content="Looper" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="format-detection" content="telephone=no" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Looper Agency" />
+    <meta property="og:title" content="Looper Agency Attendance" />
+    <meta property="og:description" content="Clock in and out, book time off and see the team calendar at Looper Agency." />
+    <meta property="og:locale" content="en_US" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Looper Agency Attendance" />
+    <meta name="twitter:description" content="Clock in and out, book time off and see the team calendar at Looper Agency." />
+    <!--site-->
+    <link rel="canonical" href="%SITE_URL%/" />
+    <meta property="og:url" content="%SITE_URL%/" />
+    <meta property="og:image" content="%SITE_URL%/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Looper Agency Attendance: attendance, simplified." />
+    <meta name="twitter:image" content="%SITE_URL%/og-image.png" />
+    <!--/site-->
+    <script>
+      // No address was set at build time: the page names itself as the canonical address (search engines run this script).
+      if (location.pathname === '/' && !document.querySelector('link[rel="canonical"]')) {
+        var c = document.createElement('link');
+        c.rel = 'canonical';
+        c.href = location.origin + '/';
+        document.head.appendChild(c);
+      }
+    </script>
+    <!--json-ld-->
     <script>
       // Pick the theme before the first paint (same rules as src/lib/theme.js): a saved choice, else the device setting.
       (function () {
@@ -16,16 +53,21 @@
         if (m) m.setAttribute('content', t === 'light' ? '#F2F2F3' : '#050B18');
       })();
     </script>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@400;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap"
-    />
-    <title>Looper Agency – Attendance</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <main class="la-seo">
+        <h1>Attendance that keeps everyone in the loop.</h1>
+        <p>Looper Agency Attendance is the employee attendance system of Looper Agency: clock in and out from the company or online, track working hours, book vacation, unpaid leave and days off, and see the team calendar.</p>
+        <ul>
+          <li>Clock in and out from the office or online</li>
+          <li>Book vacation, unpaid leave and days off, with approval by your department head</li>
+          <li>Team calendar with public holidays, birthdays and work anniversaries</li>
+          <li>Timesheets and reports for managers</li>
+        </ul>
+        <noscript><p>Looper Agency Attendance needs JavaScript. Please turn it on and reload the page.</p></noscript>
+      </main>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

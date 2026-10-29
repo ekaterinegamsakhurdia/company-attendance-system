@@ -63,7 +63,7 @@ export default function CeoDashboard() {
   return (
     <ProfileCardProvider directory={directory}>
     <Shell wide onLogout={signOut} user={employee} roleLabel="CEO" avatarPath={myProfile?.avatar_path} onProfile={() => setMine(true)}>
-      <Hero eyebrow="CEO Dashboard" title={`Welcome, ${employee.first_name}.`} subtitle={longDate()} />
+      <Hero eyebrow="CEO Dashboard" title={`Welcome, ${employee.first_name}.`} emphasis={employee.first_name} subtitle={longDate()} />
 
       <Tabs tabs={TABS.map((t) => (t.id === 'approve' ? { ...t, label: <TabLabel text="To approve" count={waiting} /> } : t))} value={tab} onChange={setTab} />
       {loadError && <Alert error>{loadError}</Alert>}

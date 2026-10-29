@@ -43,6 +43,12 @@ test('cancel and decide rules', () => {
   assert.equal(canDecide(leave, { id: 'e2', role: 'employee' }, null), false);
   assert.equal(canDecide(leave, { id: 'e1', role: 'ceo' }, null), false);           // never your own
   assert.equal(canDecide({ ...leave, status: 'approved' }, { id: 'c1', role: 'ceo' }, null), false);
+  // a head whose department approves company-wide decides every request they are shown, never their own
+  const am = { id: 'd9', approves_all_leaves: true };
+  assert.equal(canDecide(leave, { id: 'am', role: 'employee' }, am), true);
+  assert.equal(canDecide({ ...leave, employee_id: 'am' }, { id: 'am', role: 'employee' }, am), false);
+  assert.equal(canDecide(leave, { id: 'h2', role: 'employee' }, { id: 'd2', approves_all_leaves: false }), false);
+  assert.equal(canDecide(leave, { id: 'h1', role: 'employee' }, { id: 'd1', approves_all_leaves: false }), true);
 });
 
 test('validateLeaveForm', () => {
