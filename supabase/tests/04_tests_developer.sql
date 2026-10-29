@@ -73,7 +73,7 @@ end $$;
 
 -- policy count: 17 from migrations 1-4 (employees_select was replaced, not added) + 7 from migration 5
 do $$ begin
-  if (select count(*) from pg_policies where schemaname='public') <> 25 then
+  if (select count(*) from pg_policies where schemaname='public') <> 26 then
     raise exception 'unexpected policy count: %', (select count(*) from pg_policies where schemaname='public'); end if;
 end $$;
 

@@ -46,9 +46,9 @@ do $$ begin
   if (select count(*) from public.departments) <> 6 then raise exception 'dept count % (5 seeded + Test Dept)', (select count(*) from public.departments); end if;
 end $$;
 
--- exact policy set after both migrations
+-- exact policy set after all migrations (26: the 25 before migration 15 plus office_rooms_select)
 do $$ begin
-  if (select count(*) from pg_policies where schemaname='public') <> 25 then
+  if (select count(*) from pg_policies where schemaname='public') <> 26 then
     raise exception 'unexpected policy count: %', (select count(*) from pg_policies where schemaname='public'); end if;
 end $$;
 

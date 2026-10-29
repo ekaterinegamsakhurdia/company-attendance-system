@@ -428,16 +428,17 @@ textarea.la-input { resize: vertical; min-height: 84px; }
 
 .la-plan { display: flex; flex-direction: column; gap: 14px; padding-top: 26px; }
 /* The walls are the 5px gaps between the rooms; the floor plan follows the sketch of the real office. */
+.la-office-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px 16px; }
+/* The plan is a grid saved in the database (the floor is trimmed to the columns and rows the rooms use) (x, y, w, h per room; one row is 56 px). On a tablet the rooms
+   flow two to a row in reading order, on a phone one to a row. */
 .la-floor {
   display: grid; gap: 5px; padding: 5px; border-radius: 22px;
   background: linear-gradient(135deg, #3b6fd0, #284f9c);
   box-shadow: 0 0 0 1px rgba(120,160,255,.35), 0 28px 60px -30px rgba(26,92,255,.55);
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1fr);
-  grid-template-rows: repeat(4, minmax(112px, auto));
-  grid-template-areas: "design accounts copy" "design accounts copy" "production accounts ceo2" "production accounts ceo1";
+  grid-template-columns: repeat(var(--cols, 12), minmax(0, 1fr));
+  grid-auto-rows: minmax(56px, auto);
 }
-.la-room.design { grid-area: design; } .la-room.production { grid-area: production; } .la-room.accounts { grid-area: accounts; }
-.la-room.copy { grid-area: copy; } .la-room.ceo1 { grid-area: ceo1; } .la-room.ceo2 { grid-area: ceo2; }
+.la-room { grid-column: calc(var(--gx, 0) + 1) / span var(--gw, 4); grid-row: calc(var(--gy, 0) + 1) / span var(--gh, 2); }
 .la-room {
   position: relative; display: flex; flex-direction: column; min-width: 0; padding: 14px 16px 16px;
   border-radius: 10px;
@@ -484,10 +485,14 @@ textarea.la-input { resize: vertical; min-height: 84px; }
 .la-bub:hover .la-bub-tip, .la-bub:focus .la-bub-tip { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
 
 @media (max-width: 900px) {
-  .la-floor { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: none; grid-template-areas: "design production" "accounts accounts" "copy copy" "ceo2 ceo1"; }
+  .la-floor { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: auto; }
+  .la-room { grid-column: auto / span 1; grid-row: auto; min-height: 150px; }
+  .la-room[data-wide] { grid-column: 1 / -1; }
+  .la-room[data-plain] { min-height: 90px; }
 }
 @media (max-width: 560px) {
-  .la-floor { grid-template-columns: minmax(0, 1fr); grid-template-areas: "design" "production" "accounts" "copy" "ceo2" "ceo1"; }
+  .la-floor { grid-template-columns: minmax(0, 1fr); }
+  .la-room, .la-room[data-wide] { grid-column: 1 / -1; }
   .la-bub-tip { max-width: 170px; }
 }
 

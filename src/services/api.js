@@ -102,6 +102,21 @@ export async function fetchOfficeToday() {
   return unwrap(await supabase.rpc('office_today')) ?? [];
 }
 
+/** The saved floor plan (everybody signed in can read it). */
+export async function fetchOfficeRooms() {
+  return unwrap(await supabase.from('office_rooms').select('id, name, x, y, w, h, department_ids, ceo_seat').order('y').order('x')) ?? [];
+}
+
+/** Developer only: replaces the whole floor plan; returns the saved rooms. */
+export async function saveOfficeLayout(rooms) {
+  return unwrap(await supabase.rpc('dev_save_office_layout', { p_rooms: rooms })) ?? [];
+}
+
+/** Developer only: back to the original six rooms; returns the rooms. */
+export async function resetOfficeLayout() {
+  return unwrap(await supabase.rpc('dev_reset_office_layout')) ?? [];
+}
+
 /** { ip, required, on_company_network } as seen by the server. */
 export async function fetchNetworkStatus() {
   return unwrap(await supabase.rpc('my_network_status'));
